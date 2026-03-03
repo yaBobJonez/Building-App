@@ -1,160 +1,121 @@
-import React from "react";
-import { useState, useRef } from "react";
+import React, { useState, useRef, createContext, useContext } from "react";
+import {
+  LayoutDashboard,
+  Layers,
+  BarChart3,
+  Settings,
+  Search,
+  ChevronRight,
+  AlertTriangle,
+  FileText,
+  CheckSquare,
+  Clock,
+  Info,
+  CheckCircle2,
+  XCircle,
+  Download,
+  X,
+  Loader2,
+  Calendar,
+  Save,
+  ChevronLeft,
+  AlertCircle,
+} from "lucide-react";
+
+// Контекст для керування станом
+const AppContext = createContext();
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --black:#000000; --white:#FFFFFF; --mid:#C4C4C4;
-    --light:#F5F5F5; --border:#E0E0E0; --text:#1A1A1A; --sub:#666666;
     --font:'Public Sans','Helvetica Neue',Arial,sans-serif;
   }
-  body { background:var(--white); color:var(--text); font-family:var(--font); font-size:14px; }
-  .app { display:flex; min-height:100vh; }
+  body { font-family:var(--font); background-color: #ffffff; color: #1a1a1a; margin: 0; }
+  
+  .status-label { font-size:10px; font-weight:700; display: flex; align-items: center; gap: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  
+  .input-field { border: 1px solid #e5e7eb; padding: 10px 12px; border-radius: 2px; font-size: 12px; width: 100%; transition: border-color 0.2s; background: white; }
+  .input-field:focus { border-color: #000; outline: none; }
 
-  /* Sidebar */
-  .sidebar { width:180px; min-width:180px; background:#F0F0F0; border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
-  .sidebar-logo { display:flex; align-items:center; gap:8px; padding:18px 16px; border-bottom:1px solid var(--border); }
-  .logo-icon { width:32px; height:32px; background:var(--black); display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--white); font-weight:800; }
-  .logo-text { font-size:11px; font-weight:700; }
-  .logo-sub { font-size:9px; color:var(--sub); }
-  .sidebar-nav { padding:12px 0; flex:1; }
-  .nav-item { display:flex; align-items:center; gap:10px; padding:9px 16px; font-size:12px; font-weight:500; color:var(--sub); cursor:pointer; border:none; background:none; width:100%; text-align:left; transition:background .15s,color .15s; }
-  .nav-item:hover { background:#E5E5E5; color:var(--text); }
-  .nav-item.active { background:#E0E0E0; color:var(--black); font-weight:600; }
-  .nav-icon { font-size:13px; width:16px; text-align:center; }
+  .btn-black { background: #000; color: #fff; font-size: 10px; font-weight: 700; padding: 10px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.05em; transition: opacity 0.2s; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-black:hover { opacity: 0.8; }
+  
+  .btn-outline { border: 1px solid #e5e7eb; color: #000; font-size: 10px; font-weight: 700; padding: 10px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.05em; background: transparent; cursor: pointer; }
+  .btn-outline:hover { background: #f9fafb; }
+  
+  .card { border: 1px solid #f3f4f6; border-radius: 2px; padding: 24px; transition: all 0.2s; }
+  .card:hover { border-color: #d1d5db; }
 
-  /* Top bar */
-  .topbar { height:48px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 28px; background:var(--white); flex-shrink:0; }
-  .topbar-title { font-size:13px; font-weight:700; letter-spacing:.02em; }
-  .topbar-right { display:flex; align-items:center; gap:14px; }
-  .topbar-nav { display:flex; gap:18px; }
-  .topbar-nav-item { font-size:12px; color:var(--sub); cursor:pointer; background:none; border:none; font-family:var(--font); padding:0; transition:color .15s; }
-  .topbar-nav-item:hover,.topbar-nav-item.active { color:var(--text); font-weight:600; }
-  .search-box { display:flex; align-items:center; gap:6px; border:1px solid var(--border); padding:4px 10px; font-size:11px; color:var(--sub); border-radius:2px; background:var(--light); }
-  .avatar { width:28px; height:28px; border-radius:50%; background:var(--mid); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--white); }
+  .custom-checkbox { width: 24px; height: 24px; border: 2px solid #000; border-radius: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+  .custom-checkbox.checked { background: #000; }
+  .custom-checkbox.checked::after { content: '✓'; color: #fff; font-size: 14px; font-weight: bold; }
 
-  /* Content */
-  .content { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
-  .page { flex:1; overflow-y:auto; padding:32px 40px 60px; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+  .modal-content { background: white; border: 1px solid #000; width: 100%; max-width: 450px; padding: 32px; position: relative; }
+  
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+  /* Оновлені стилі для документів */
+  .doc-card-blue { 
+    border: 1px solid #f3f4f6; 
+    padding: 32px 24px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .doc-card-blue:hover { border-color: #3b82f6; }
+  
+  .icon-container-blue {
+    padding: 12px;
+    background: #eff6ff;
+    color: #3b82f6;
+    border: 1px solid #dbeafe;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
 
-  /* Typography */
-  .page-heading { font-size:22px; font-weight:800; letter-spacing:-.02em; text-align:center; margin-bottom:6px; }
-  .page-sub { font-size:12px; color:var(--sub); text-align:center; margin-bottom:20px; }
-  .section-header { text-align:center; margin-bottom:20px; }
-  .section-with-btn { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .filter-tab {
+    padding: 6px 16px;
+    border: 1px solid #e5e7eb;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    background: white;
+  }
+  .filter-tab.active {
+    background: black;
+    color: white;
+    border-color: black;
+  }
 
-  /* Buttons */
-  .btn { font-family:var(--font); font-size:11px; font-weight:600; letter-spacing:.04em; cursor:pointer; padding:8px 18px; border-radius:2px; border:1px solid var(--black); transition:background .15s,color .15s; }
-  .btn-primary { background:var(--black); color:var(--white); }
-  .btn-primary:hover { background:#222; }
-  .btn-outline { background:var(--white); color:var(--black); }
-  .btn-outline:hover { background:var(--light); }
-  .btn-sm { padding:5px 12px; font-size:10px; }
-  .center-btn { display:flex; justify-content:center; margin-bottom:24px; }
-  .divider { border:none; border-top:1px solid var(--border); margin:24px 0; }
-
-  /* Project list */
-  .project-list { max-width:520px; margin:0 auto 32px; }
-  .project-item { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border:1px solid var(--border); margin-bottom:6px; background:var(--white); transition:box-shadow .15s; }
-  .project-item:hover { box-shadow:0 2px 8px rgba(0,0,0,.07); }
-  .project-item-left { display:flex; align-items:center; gap:12px; }
-  .project-thumb { width:36px; height:36px; background:#EEE; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; border:1px solid var(--border); }
-  .project-name { font-size:12px; font-weight:600; }
-  .project-loc { font-size:10px; color:var(--sub); margin-top:1px; }
-  .status-label { font-size:11px; font-weight:600; }
-  .status-label.Active { color:#18A558; }
-  .status-label.Approved { color:#1976D2; }
-  .status-label.Denied { color:#D32F2F; }
-  .status-label.Pending { color:#F57C00; }
-  .status-label.Done { color:var(--sub); }
-  .status-icon { font-size:12px; color:var(--mid); cursor:pointer; margin-left:6px; }
-
-  /* Quick access */
-  .quick-access-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:560px; margin:0 auto 32px; }
-  .qa-card { border:1px solid var(--border); padding:20px 16px 14px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; transition:box-shadow .15s,border-color .15s; text-align:center; }
-  .qa-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.08); border-color:var(--mid); }
-  .qa-icon { font-size:26px; margin-bottom:4px; }
-  .qa-title { font-size:12px; font-weight:700; }
-  .qa-desc { font-size:10px; color:var(--sub); line-height:1.4; }
-
-  /* Stats */
-  .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; max-width:400px; margin:0 auto 32px; }
-  .stat-label { font-size:10px; color:var(--sub); font-weight:600; letter-spacing:.05em; text-transform:uppercase; margin-bottom:4px; }
-  .stat-num { font-size:30px; font-weight:900; letter-spacing:-.03em; line-height:1; }
-  .stat-change { font-size:10px; color:var(--sub); margin-top:2px; }
-
-  /* Create form */
-  .create-form { max-width:560px; margin:0 auto; }
-  .form-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
-  .form-group { display:flex; flex-direction:column; gap:4px; }
-  .form-label { font-size:10px; font-weight:600; color:var(--text); text-transform:uppercase; letter-spacing:.05em; }
-  .form-input { border:1px solid var(--border); padding:8px 10px; font-family:var(--font); font-size:12px; color:var(--text); border-radius:1px; outline:none; background:var(--white); transition:border-color .15s; }
-  .form-input:focus { border-color:var(--black); }
-  .form-input::placeholder { color:#BBB; }
-  .form-actions { display:flex; gap:10px; margin-top:4px; }
-
-  /* Tasks */
-  .tasks-container { max-width:480px; margin:0 auto; }
-  .task-filters { display:flex; gap:8px; margin-bottom:20px; }
-  .task-item { display:flex; align-items:center; justify-content:space-between; padding:13px 0; border-bottom:1px solid var(--border); }
-  .task-left { display:flex; align-items:center; gap:12px; }
-  .task-check { width:20px; height:20px; border:2px solid var(--black); display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer; background:var(--white); position:relative; }
-  .task-check.done { background:var(--black); }
-  .task-check.done::after { content:'✓'; color:var(--white); font-size:11px; font-weight:700; position:absolute; }
-  .task-text { font-size:13px; font-weight:500; }
-  .task-text.done { text-decoration:line-through; color:var(--sub); }
-  .task-status-pill { font-size:10px; font-weight:600; padding:3px 9px; border:1px solid var(--border); border-radius:20px; color:var(--sub); white-space:nowrap; }
-  .task-status-pill.inprogress { color:#1976D2; border-color:#1976D2; }
-  .task-status-pill.done-pill { color:#18A558; border-color:#18A558; }
-  .work-details { border:1px solid var(--border); padding:18px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:16px; }
-  .work-title { font-size:13px; font-weight:700; margin-bottom:6px; }
-  .work-items { font-size:11px; color:var(--sub); line-height:1.8; }
-  .work-meta { font-size:10px; color:var(--mid); margin-top:4px; }
-
-  /* Documents */
-  .docs-container { max-width:680px; margin:0 auto; }
-  .doc-cards-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
-  .doc-card { border:1px solid var(--border); padding:16px 12px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; }
-  .doc-file-icon { font-size:30px; color:var(--mid); }
-  .doc-name { font-size:11px; font-weight:700; }
-  .doc-uploader { font-size:10px; color:var(--sub); }
-  .doc-date { font-size:10px; color:var(--sub); font-weight:600; }
-  .filter-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
-  .filter-toggle { font-family:var(--font); font-size:10px; font-weight:600; padding:4px 12px; border:1px solid var(--border); cursor:pointer; background:var(--white); border-radius:1px; transition:background .15s; }
-  .filter-toggle.active { background:var(--black); color:var(--white); border-color:var(--black); }
-  .version-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
-  .version-card { border:1px solid var(--border); padding:12px 14px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-  .version-left { display:flex; gap:10px; align-items:flex-start; }
-  .ver-icon { font-size:22px; color:var(--mid); flex-shrink:0; margin-top:2px; }
-  .ver-name { font-size:12px; font-weight:700; margin-bottom:2px; }
-  .ver-meta { font-size:10px; color:var(--sub); line-height:1.5; }
-  .ver-status { font-size:9px; font-weight:600; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; }
-  .download-btn { width:28px; height:28px; background:var(--black); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--white); font-size:14px; transition:background .15s; }
-  .download-btn:hover { background:#333; }
-
-  /* Incidents */
-  .incidents-container { max-width:560px; margin:0 auto; }
-  .incident-item { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--border); gap:12px; }
-  .incident-left { display:flex; align-items:center; gap:10px; }
-  .incident-warn { font-size:18px; color:#F57C00; }
-  .incident-name { font-size:13px; font-weight:600; }
-  .incident-date { font-size:11px; color:var(--sub); text-align:right; }
-  .severity-badge { font-size:10px; font-weight:700; text-align:right; }
-  .severity-badge.critical { color:#D32F2F; }
-  .severity-badge.medium { color:#F57C00; }
-
-  /* Footer */
-  .footer { border-top:1px solid var(--border); padding:14px 40px; display:flex; align-items:center; justify-content:space-between; font-size:10px; color:var(--sub); flex-shrink:0; }
-  .footer-links { display:flex; gap:16px; }
-  .footer-links a { color:var(--sub); text-decoration:none; }
-  .footer-links a:hover { color:var(--text); }
+  .version-item {
+    border: 1px solid #f3f4f6;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+  }
+  .version-info h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
+  .version-meta { font-size: 10px; color: #9ca3af; font-weight: 600; }
+  .version-desc { font-size: 10px; color: #6b7280; font-style: italic; margin-top: 4px; line-height: 1.4; }
+  .badge-stable { 
+    font-size: 9px; 
+    font-weight: 800; 
+    color: #9ca3af; 
+    border: 1px solid #f3f4f6; 
+    padding: 1px 4px; 
+    display: inline-block; 
+    margin-top: 8px;
+  }
 `;
 
-const PROJECTS = [
+const INITIAL_PROJECTS = [
   {
     id: 1,
-    name: 'KK "Sunny Tower"',
+    name: "ЖК 'Sunny Tower'",
     loc: "Kyiv",
     status: "Active",
     icon: "🏗️",
@@ -162,554 +123,1143 @@ const PROJECTS = [
   { id: 2, name: "Warehouse A", loc: "Lviv", status: "Approved", icon: "🏭" },
   {
     id: 3,
-    name: 'KK "Cloud Tower"',
-    loc: "Dnipro",
+    name: "ЖК 'Cloud Tower'",
+    loc: "Kyiv",
     status: "Denied",
     icon: "🏗️",
   },
-  { id: 4, name: "Warehouse B", loc: "Odesa", status: "Pending", icon: "🏭" },
-  {
-    id: 5,
-    name: 'KK "Rainy Tower"',
-    loc: "Kharkiv",
-    status: "Done",
-    icon: "🏗️",
-  },
+  { id: 4, name: "Warehouse B", loc: "Lviv", status: "Pending", icon: "⌛" },
+  { id: 5, name: "ЖК 'Rainy Tower'", loc: "Kyiv", status: "Done", icon: "✅" },
 ];
 
-const TASKS_DATA = [
+const INITIAL_TASKS = [
   {
     id: 1,
     text: "Pour concrete foundation",
     status: "In Progress",
     done: false,
+    desc: "Заливка фундаменту основного корпусу А1. Потрібно перевірити якість суміші.",
+    deadline: "2026-03-10",
   },
-  { id: 2, text: "Site preparation", status: "Done", done: true },
-  { id: 3, text: "Wall construction", status: "To Do", done: false },
+  {
+    id: 2,
+    text: "Site preparation",
+    status: "Done",
+    done: true,
+    desc: "Очищення території та встановлення паркану.",
+    deadline: "2026-02-28",
+  },
+  {
+    id: 3,
+    text: "Wall construction",
+    status: "To Do",
+    done: false,
+    desc: "Початок цегляної кладки другого поверху.",
+    deadline: "2026-04-15",
+  },
 ];
 
-const DOCS = [
-  { name: "Project Plans", uploader: "John Smith", date: "2025-10-15" },
-  { name: "Site Reports", uploader: "Jane Smith", date: "2025-10-10" },
+const INITIAL_DOCS = [
   {
+    id: 1,
+    name: "Project Plans",
+    uploader: "John Smith",
+    date: "2025-10-15",
+    version: "v2.1 Final",
+    stable: true,
+  },
+  {
+    id: 2,
+    name: "Site Reports",
+    uploader: "Jane Smith",
+    date: "2025-10-10",
+    version: "v1.5 Draft",
+    stable: false,
+  },
+  {
+    id: 3,
     name: "Inspection Certificates",
     uploader: "Mike Wayne",
     date: "2025-09-30",
-  },
-  { name: "Contracts", uploader: "Sarah Lyon", date: "2025-08-25" },
-];
-
-const VERSIONS = [
-  {
-    name: "Project Plans",
-    rev: "v2.1 — Final",
-    note: "Latest version available for download.",
-    status: "stable",
+    version: "v1.0 Stable",
+    stable: true,
   },
   {
-    name: "Site Reports",
-    rev: "v1.5 — Draft",
-    note: "This version is a draft, not for use.",
-    status: "draft",
-  },
-  {
-    name: "Inspection Certificates",
-    rev: "v1.0 — Stable",
-    note: "Latest version available for stakeholder data.",
-    status: "stable",
-  },
-  {
+    id: 4,
     name: "Contracts",
-    rev: "v1.3 — Draft",
-    note: "This version is a draft, not for use.",
-    status: "draft",
+    uploader: "Sarah Lyon",
+    date: "2025-08-25",
+    version: "v1.3 Draft",
+    stable: false,
   },
 ];
 
-const INCIDENTS = [
+const INITIAL_INCIDENTS = [
   {
     id: 1,
     name: "Broken equipment on site B",
     date: "Feb 20",
     severity: "Critical",
+    desc: "Зламаний баштовий кран. Потребує термінового ремонту або заміни деталей.",
   },
-  { id: 2, name: "Weather delay alert", date: "Feb 19", severity: "Medium" },
+  {
+    id: 2,
+    name: "Weather delay alert",
+    date: "Feb 19",
+    severity: "Medium",
+    desc: "Сильний вітер перешкоджає проведенню висотних робіт.",
+  },
 ];
 
-/* ── Shell ────────────────────────────────────────────────────────────────── */
-function AppShell({ page, setPage }) {
-  const SIDEBAR_NAV = [
-    { key: "dashboard", label: "Dashboard", icon: "⊞" },
-    { key: "projects", label: "Projects", icon: "📁" },
-    { key: "analytics", label: "Analytics", icon: "📊" },
-    { key: "settings", label: "Settings", icon: "⚙️" },
+/* ── App Shell ───────────────────────────────────────────────────────────── */
+function AppShell({ page, setPage, children }) {
+  const navigation = [
+    { name: "Dashboard", key: "dashboard", icon: LayoutDashboard },
+    { name: "Projects", key: "projects", icon: Layers },
+    { name: "Analytics", key: "analytics", icon: BarChart3 },
+    { name: "Settings", key: "settings", icon: Settings },
   ];
-  const TITLES = {
-    dashboard: "Construction Dashboard",
-    projects: "Project Tasks",
-    tasks: "Project Tasks",
-    documents: "Document Repository",
-    incidents: "Project Incidents",
-  };
-  const SUB_NAV = ["Home", "Tasks", "Documents", "Incidents"];
-  const inSub = ["projects", "tasks", "documents", "incidents"].includes(page);
 
   return (
-    <div className="app">
-      {page === "dashboard" && (
-        <aside className="sidebar">
-          <div className="sidebar-logo">
-            <div className="logo-icon">🏗</div>
-            <div>
-              <div className="logo-text">TechBuild</div>
-              <div className="logo-sub">Construction Suite</div>
+    <div className="flex h-screen bg-white text-slate-900 overflow-hidden">
+      <aside className="w-[200px] flex-shrink-0 border-r border-gray-100 bg-gray-50 flex flex-col">
+        <div className="p-4 flex items-center gap-2 border-b border-gray-100 bg-white">
+          <Layers size={18} />
+          <h1 className="text-[11px] font-bold uppercase tracking-tight">
+            Construction Dashboard
+          </h1>
+        </div>
+        <nav className="flex-1 py-4 px-2 space-y-1">
+          {navigation.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setPage(item.key)}
+              className={`w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold rounded transition-colors text-left border-none cursor-pointer ${
+                page === item.key ||
+                (item.key === "projects" && page === "project_details")
+                  ? "bg-gray-200 text-black shadow-sm"
+                  : "text-gray-400 hover:text-black bg-transparent"
+              }`}
+            >
+              <item.icon size={14} />
+              {item.name}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="h-12 border-b border-gray-100 bg-white flex items-center justify-between px-8 flex-shrink-0">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+            {page.replace("_", " ")}
+          </div>
+          <div className="flex items-center gap-6">
+            <nav className="flex gap-4 text-[10px] font-bold uppercase text-gray-400">
+              <button
+                onClick={() => setPage("dashboard")}
+                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
+              >
+                Home
+              </button>
+              <button
+                onClick={() => setPage("tasks")}
+                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
+              >
+                Tasks
+              </button>
+              <button
+                onClick={() => setPage("documents")}
+                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
+              >
+                Documents
+              </button>
+              <button
+                onClick={() => setPage("incidents")}
+                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
+              >
+                Incidents
+              </button>
+            </nav>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search in site"
+                className="pr-8 pl-3 py-1 bg-white border border-gray-200 rounded text-[10px] w-48 focus:outline-none focus:border-black"
+              />
+              <Search
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300"
+                size={10}
+              />
+            </div>
+            <div className="w-7 h-7 rounded-full bg-gray-200 overflow-hidden border border-gray-100">
+              <img
+                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+                alt="avatar"
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
-          <nav className="sidebar-nav">
-            {SIDEBAR_NAV.map((n) => (
-              <button
-                key={n.key}
-                className={`nav-item${page === n.key ? " active" : ""}`}
-                onClick={() => setPage(n.key)}
-              >
-                <span className="nav-icon">{n.icon}</span>
-                {n.label}
-              </button>
-            ))}
-          </nav>
-        </aside>
-      )}
-
-      <div className="content">
-        <div className="topbar">
-          <div className="topbar-title">{TITLES[page] || "ARCHON"}</div>
-          <div className="topbar-right">
-            {inSub && (
-              <nav className="topbar-nav">
-                {SUB_NAV.map((l) => (
-                  <button
-                    key={l}
-                    className={`topbar-nav-item${(l === "Home" && page === "projects") || (l === "Tasks" && page === "tasks") || (l === "Documents" && page === "documents") || (l === "Incidents" && page === "incidents") ? " active" : ""}`}
-                    onClick={() => {
-                      if (l === "Home") setPage("dashboard");
-                      if (l === "Tasks") setPage("tasks");
-                      if (l === "Documents") setPage("documents");
-                      if (l === "Incidents") setPage("incidents");
-                    }}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </nav>
-            )}
-            <div className="search-box">🔍 Search in site</div>
-            <div className="avatar">U</div>
-          </div>
-        </div>
-
-        {page === "dashboard" && <DashboardPage setPage={setPage} />}
-        {page === "projects" && <TasksPage />}
-        {page === "tasks" && <TasksPage />}
-        {page === "documents" && <DocumentsPage />}
-        {page === "incidents" && <IncidentsPage />}
-
-        <footer className="footer">
-          <span>© 2026 TechBuild</span>
-          <div className="footer-links">
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
-          </div>
-        </footer>
+        </header>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
 }
 
-/* ── Dashboard ────────────────────────────────────────────────────────────── */
-function DashboardPage({ setPage }) {
-  const [form, setForm] = useState({ name: "", address: "", budget: "" });
+/* ── Dashboard Page ──────────────────────────────────────────────────────── */
+function DashboardPage({ onProjectClick, setPage }) {
+  const createFormRef = useRef(null);
+  const scrollToCreate = () =>
+    createFormRef.current?.scrollIntoView({ behavior: "smooth" });
+
   return (
-    <div className="page">
-      <div className="section-header">
-        <h1 className="page-heading">Construction Projects</h1>
-      </div>
-      <div className="center-btn">
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            const el = document.getElementById("create-project-section");
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
-        >
+    <div className="max-w-5xl mx-auto p-12 space-y-24 pb-32">
+      <section className="text-center space-y-8 flex flex-col items-center">
+        <h1 className="text-4xl font-bold">Construction Projects</h1>
+        <button onClick={scrollToCreate} className="btn-black px-12">
           + New Project
         </button>
-      </div>
+      </section>
 
-      <div
-        style={{
-          maxWidth: 520,
-          margin: "0 auto 10px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <h2>Project Registry</h2>
-      </div>
-      <div className="project-list">
-        {PROJECTS.map((p) => (
-          <div className="project-item" key={p.id}>
-            <div className="project-item-left">
-              <div className="project-thumb">{p.icon}</div>
-              <div>
-                <div className="project-name">{p.name}</div>
-                <div className="project-loc">{p.loc}</div>
+      <section className="grid grid-cols-12 gap-8 items-start">
+        <div className="col-span-5">
+          <h2 className="text-3xl font-bold uppercase tracking-tight">
+            Project Registry
+          </h2>
+        </div>
+        <div className="col-span-7 divide-y divide-gray-50">
+          {INITIAL_PROJECTS.map((p) => (
+            <div
+              key={p.id}
+              onClick={() => onProjectClick(p)}
+              className="flex items-center justify-between py-4 px-2 hover:bg-gray-50 cursor-pointer transition-colors group"
+            >
+              <div className="flex items-center gap-6">
+                <div className="w-10 h-10 bg-gray-100 flex items-center justify-center text-xl rounded grayscale group-hover:grayscale-0 transition-all">
+                  {p.icon}
+                </div>
+                <div>
+                  <div className="text-xs font-bold uppercase">{p.name}</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-tight">
+                    {p.loc}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider">
+                {p.status}
+                {p.status === "Active" && (
+                  <Settings size={14} className="text-gray-400" />
+                )}
+                {p.status === "Approved" && (
+                  <CheckCircle2 size={14} className="text-gray-400" />
+                )}
+                {p.status === "Denied" && (
+                  <XCircle size={14} className="text-gray-400" />
+                )}
+                {p.status === "Pending" && (
+                  <Clock size={14} className="text-gray-400" />
+                )}
+                {p.status === "Done" && (
+                  <CheckCircle2 size={14} className="text-gray-400" />
+                )}
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <span className={`status-label ${p.status}`}>{p.status}</span>
-              <span className="status-icon">ℹ</span>
+          ))}
+        </div>
+      </section>
+
+      <section className="text-center space-y-12">
+        <h2 className="text-2xl font-bold uppercase tracking-tight">
+          Quick Access
+        </h2>
+        <div className="grid grid-cols-3 gap-8">
+          {[
+            {
+              key: "tasks",
+              icon: CheckSquare,
+              title: "Tasks",
+              desc: "Manage tasks for this project",
+            },
+            {
+              key: "documents",
+              icon: FileText,
+              title: "Docs",
+              desc: "Access project documentation",
+            },
+            {
+              key: "incidents",
+              icon: AlertTriangle,
+              title: "Incidents",
+              desc: "Report or view incidents",
+            },
+          ].map((c) => (
+            <div
+              key={c.key}
+              onClick={() => setPage(c.key)}
+              className="card flex flex-col items-center text-center gap-5 cursor-pointer"
+            >
+              <div className="p-5 border border-black rounded-lg">
+                <c.icon size={36} strokeWidth={1} />
+              </div>
+              <div className="space-y-1 flex flex-col items-center">
+                <h3 className="text-xs font-bold uppercase">{c.title}</h3>
+                <p className="text-[10px] text-gray-400 max-w-[140px] leading-tight">
+                  {c.desc}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      <hr className="divider" />
-
-      <div className="section-header">
-        <h2>Quick Access</h2>
-      </div>
-      <div className="quick-access-grid">
-        {[
-          {
-            key: "tasks",
-            icon: "📋",
-            title: "Tasks",
-            desc: "Manage tasks for this project",
-          },
-          {
-            key: "documents",
-            icon: "📄",
-            title: "Docs",
-            desc: "Access project documentation",
-          },
-          {
-            key: "incidents",
-            icon: "⚠️",
-            title: "Incidents",
-            desc: "Report or view incidents",
-          },
-        ].map((c) => (
-          <div className="qa-card" key={c.key} onClick={() => setPage(c.key)}>
-            <div className="qa-icon">{c.icon}</div>
-            <div className="qa-title">{c.title}</div>
-            <div className="qa-desc">{c.desc}</div>
-          </div>
-        ))}
-      </div>
-
-      <hr className="divider" />
-
-      <div className="section-header">
-        <h2>Overview</h2>
-        <p className="page-sub" style={{ marginBottom: 0 }}>
-          Key metrics on project status.
-        </p>
-      </div>
-      <div className="stats-grid">
-        <div>
-          <div className="stat-label">Total Projects</div>
-          <div className="stat-num">3</div>
+          ))}
         </div>
-        <div>
-          <div className="stat-label">Completed</div>
-          <div className="stat-num">1</div>
-          <div className="stat-change">+1</div>
-        </div>
-        <div>
-          <div className="stat-label">In Progress</div>
-          <div className="stat-num">1</div>
-          <div className="stat-change">0</div>
-        </div>
-        <div>
-          <div className="stat-label">Pending</div>
-          <div className="stat-num">1</div>
-          <div className="stat-change">0</div>
-        </div>
-      </div>
+      </section>
 
-      <hr className="divider" />
+      <section className="text-center space-y-12">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold uppercase">Overview</h2>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+            Key metrics on project status.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { label: "Total Projects", val: "3", change: null },
+            { label: "Completed", val: "1", change: "+1" },
+            { label: "In Progress", val: "1", change: "0" },
+            { label: "Pending", val: "1", change: "0" },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="p-8 border border-gray-100 text-left rounded-sm"
+            >
+              <p className="text-[10px] text-gray-400 uppercase font-bold mb-2 tracking-widest">
+                {s.label}
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold">{s.val}</span>
+                {s.change && (
+                  <span className="text-[10px] text-gray-400 font-bold">
+                    {s.change}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <div id="create-project-section" className="section-header">
-        <h2>Create New Project</h2>
-      </div>
-      <div className="create-form">
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Project Name</label>
-            <input
-              className="form-input"
-              placeholder="Enter project name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            />
+      <section
+        ref={createFormRef}
+        className="text-center space-y-12 pt-12 border-t border-gray-50"
+      >
+        <h2 className="text-2xl font-bold uppercase">Create New Project</h2>
+        <div className="grid grid-cols-3 gap-6 text-left">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Project Name
+            </label>
+            <input className="input-field" placeholder="Enter project name" />
           </div>
-          <div className="form-group">
-            <label className="form-label">Site Address</label>
-            <input
-              className="form-input"
-              placeholder="Enter site address"
-              value={form.address}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, address: e.target.value }))
-              }
-            />
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Site Address
+            </label>
+            <input className="input-field" placeholder="Enter site address" />
           </div>
-          <div className="form-group">
-            <label className="form-label">Initial Budget</label>
-            <input
-              className="form-input"
-              placeholder="Enter budget amount"
-              value={form.budget}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, budget: e.target.value }))
-              }
-            />
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Initial Budget
+            </label>
+            <input className="input-field" placeholder="Enter budget amount" />
           </div>
         </div>
-        <div className="form-actions">
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={() => setForm({ name: "", address: "", budget: "" })}
-          >
-            Cancel
-          </button>
-          <button className="btn btn-primary btn-sm">Create</button>
+        <div className="flex justify-center gap-4">
+          <button className="btn-outline px-16">Cancel</button>
+          <button className="btn-black px-16">Create</button>
         </div>
-      </div>
+      </section>
+
+      <footer className="text-center pt-20 flex justify-center gap-10 text-[10px] font-bold uppercase text-gray-400">
+        <span>© 2026 TechBuild</span>
+        <a href="#" className="hover:text-black">
+          Privacy Policy
+        </a>
+        <a href="#" className="hover:text-black">
+          Terms of Service
+        </a>
+      </footer>
     </div>
   );
 }
 
-/* ── Tasks ────────────────────────────────────────────────────────────────── */
-function TasksPage() {
-  const [tasks, setTasks] = useState(TASKS_DATA);
-  const toggle = (id) =>
-    setTasks((ts) =>
-      ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
+/* ── Tasks Components ────────────────────────────────────────────────────── */
+function TasksPage({ onTaskClick }) {
+  const { tasks, toggleTask, addTask } = useContext(AppContext);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({ text: "", status: "To Do" });
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    if (!form.text.trim()) return;
+    addTask(form.text, form.status);
+    setForm({ text: "", status: "To Do" });
+    setIsModalOpen(false);
+  };
+
   return (
-    <div className="page">
-      <div className="section-header">
-        <h1 className="page-heading">Today's Tasks</h1>
-        <p className="page-sub">Keep track of all your engineering tasks</p>
-      </div>
-      <div className="tasks-container">
-        <div className="task-filters">
-          <button className="btn btn-outline btn-sm">Filter Tasks</button>
-          <button className="btn btn-primary btn-sm">Add New Task</button>
+    <div className="max-w-4xl mx-auto p-12 py-16">
+      <header className="text-center space-y-4 mb-20">
+        <h1 className="text-3xl font-bold">Today's Tasks</h1>
+        <p className="text-[10px] text-gray-400 font-bold uppercase">
+          Keep track of all your engineering tasks.
+        </p>
+        <div className="flex justify-center gap-3 pt-4">
+          <button className="btn-outline">Filter Tasks</button>
+          <button onClick={() => setIsModalOpen(true)} className="btn-black">
+            Add New Task
+          </button>
         </div>
-        <h2 style={{ marginBottom: 14 }}>Task List</h2>
-        <div>
-          {tasks.map((t) => (
-            <div className="task-item" key={t.id}>
-              <div className="task-left">
-                <div
-                  className={`task-check${t.done ? " done" : ""}`}
-                  onClick={() => toggle(t.id)}
+      </header>
+
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-black bg-transparent border-none cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-6 uppercase">New Task</h2>
+            <form onSubmit={handleAdd} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-500">
+                  Task Title
+                </label>
+                <input
+                  className="input-field"
+                  autoFocus
+                  value={form.text}
+                  onChange={(e) => setForm({ ...form, text: e.target.value })}
+                  placeholder="Enter task..."
                 />
-                <span className={`task-text${t.done ? " done" : ""}`}>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-500">
+                  Status
+                </label>
+                <select
+                  className="input-field"
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                >
+                  <option value="To Do">To Do</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Done">Done</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="btn-outline px-6"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-black px-6">
+                  Add
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-xl mx-auto space-y-12">
+        <h2 className="text-2xl font-bold text-center uppercase tracking-tight">
+          Task List
+        </h2>
+        <div className="space-y-6">
+          {tasks.map((t) => (
+            <div
+              key={t.id}
+              className="flex items-center justify-between py-2 border-b border-gray-50 pb-4"
+            >
+              <div className="flex items-center gap-6">
+                <div
+                  className={`custom-checkbox ${t.done ? "checked" : ""}`}
+                  onClick={() => toggleTask(t.id)}
+                />
+                <span
+                  onClick={() => onTaskClick(t)}
+                  className={`text-sm font-semibold cursor-pointer hover:underline ${t.done ? "text-gray-300 line-through" : "text-black"}`}
+                >
                   {t.text}
                 </span>
               </div>
-              <span
-                className={`task-status-pill${t.status === "In Progress" ? " inprogress" : t.status === "Done" ? " done-pill" : ""}`}
-              >
+              <span className="text-[9px] font-bold uppercase text-gray-400 bg-gray-50 px-2 py-1">
                 {t.status}
               </span>
             </div>
           ))}
         </div>
-        <div className="work-details">
-          <div>
-            <div className="work-title">Work Details</div>
-            <div
-              style={{ fontSize: 11, color: "var(--sub)", marginBottom: 12 }}
-            >
-              Summary of completed works
-            </div>
-            <button className="btn btn-primary btn-sm">Verify</button>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 6,
-              }}
-            >
-              <span style={{ fontSize: 24 }}>🕐</span>
-              <div className="work-title">Recent Work</div>
-            </div>
-            <div className="work-items">
-              1. Concrete poured on 2025-10-07
-              <br />
-              2. Framework assembled on 2024-10-12
-            </div>
-            <div className="work-meta" style={{ marginTop: 6 }}>
-              Established · Reviewed
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
-/* ── Documents ────────────────────────────────────────────────────────────── */
+function TaskDetailsPage({ task, onBack }) {
+  const { updateTaskDetails } = useContext(AppContext);
+  const [form, setForm] = useState({ ...task });
+
+  const handleSave = () => {
+    updateTaskDetails(form);
+    onBack();
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-12 py-16">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-[10px] font-bold uppercase mb-12 text-gray-400 hover:text-black transition-colors"
+      >
+        <ChevronLeft size={14} /> Back to tasks
+      </button>
+
+      <div className="space-y-10">
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold uppercase text-gray-400">
+            Task Title
+          </label>
+          <input
+            className="text-3xl font-bold bg-transparent border-none w-full focus:outline-none"
+            value={form.text}
+            onChange={(e) => setForm({ ...form, text: e.target.value })}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
+              <Calendar size={12} /> Deadline
+            </label>
+            <input
+              type="date"
+              className="input-field"
+              value={form.deadline}
+              onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
+              <Info size={12} /> Status
+            </label>
+            <select
+              className="input-field"
+              value={form.status}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  status: e.target.value,
+                  done: e.target.value === "Done",
+                })
+              }
+            >
+              <option value="To Do">To Do</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Done">Done</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold uppercase text-gray-400">
+            Description
+          </label>
+          <textarea
+            className="input-field h-32 resize-none"
+            value={form.desc}
+            onChange={(e) => setForm({ ...form, desc: e.target.value })}
+          />
+        </div>
+
+        <button onClick={handleSave} className="btn-black w-full py-4">
+          <Save size={16} /> Save Changes
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Documents Page ──────────────────────────────────────────────────────── */
 function DocumentsPage() {
+  const { docs, addDoc } = useContext(AppContext);
   const [filter, setFilter] = useState("All");
-  return (
-    <div className="page">
-      <div className="section-header">
-        <h1 className="page-heading">Upload Your Documents</h1>
-        <p className="page-sub">
-          Easily manage and upload documents within the construction app.
-        </p>
-        <div
-          style={{ display: "flex", justifyContent: "center", marginTop: 10 }}
-        >
-          <button className="btn btn-primary">Upload Files</button>
-        </div>
-      </div>
-      <div className="docs-container">
-        <hr className="divider" style={{ margin: "18px 0" }} />
-        <div className="section-header">
-          <h2>Documents</h2>
-          <p className="page-sub" style={{ marginBottom: 0 }}>
-            Your upload history and available documents.
-          </p>
-        </div>
-        <div className="doc-cards-grid">
-          {DOCS.map((d) => (
-            <div className="doc-card" key={d.name}>
-              <div className="doc-file-icon">📄</div>
-              <div className="doc-name">{d.name}</div>
-              <div className="doc-uploader">Uploaded by {d.uploader}</div>
-              <div className="doc-date">{d.date}</div>
-            </div>
-          ))}
-        </div>
-        <hr className="divider" style={{ margin: "18px 0" }} />
-        <h2 style={{ marginBottom: 14 }}>Filter Documents</h2>
-        <div className="filter-row">
-          {["All", "Certified Stable Versions"].map((f) => (
-            <button
-              key={f}
-              className={`filter-toggle${filter === f ? " active" : ""}`}
-              onClick={() => setFilter(f)}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            margin: "10px 0 24px",
-          }}
-        >
-          <button className="btn btn-primary btn-sm">Apply Filter</button>
-        </div>
-        <h2 style={{ marginBottom: 14 }}>Document Versions</h2>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: 14,
-          }}
-        >
-          <button className="btn btn-primary btn-sm">Download All</button>
-        </div>
-        <div className="version-grid">
-          {VERSIONS.map((v) => (
-            <div className="version-card" key={v.name}>
-              <div className="version-left">
-                <span className="ver-icon">📄</span>
-                <div>
-                  <div className="ver-name">{v.name}</div>
-                  <div className="ver-meta">{v.rev}</div>
-                  <div className="ver-meta">{v.note}</div>
-                  <div className="ver-status">{v.status}</div>
-                </div>
-              </div>
-              <button className="download-btn">↓</button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+  const fileInputRef = useRef(null);
 
-/* ── Incidents ────────────────────────────────────────────────────────────── */
-function IncidentsPage() {
+  const handleDownload = (docName) => {
+    // Імітація завантаження
+    const element = document.createElement("a");
+    const file = new Blob(["Контент документа: " + docName], {
+      type: "text/plain",
+    });
+    element.href = URL.createObjectURL(file);
+    element.download = `${docName}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
   return (
-    <div className="page">
-      <div className="section-header">
-        <h1 className="page-heading">Incidents Tab</h1>
-        <p className="page-sub">
-          Overview of reported incidents related to this project.
+    <div className="max-w-5xl mx-auto p-12 py-10 space-y-16">
+      {/* Header */}
+      <header className="text-center space-y-4">
+        <h2 className="text-xl font-bold uppercase tracking-tight">
+          Documents
+        </h2>
+        <p className="text-[10px] text-gray-400 font-bold uppercase">
+          Your upload history and available documents.
         </p>
-        <div
-          style={{ display: "flex", justifyContent: "center", marginTop: 10 }}
-        >
-          <button className="btn btn-primary">+ Report Incident</button>
+        <div className="pt-4">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-black px-12 mx-auto"
+          >
+            Upload Files
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files[0])
+                addDoc({
+                  id: Date.now(),
+                  name: e.target.files[0].name,
+                  uploader: "Admin",
+                  date: "2026-03-03",
+                  version: "v1.0 Draft",
+                  stable: false,
+                });
+            }}
+          />
         </div>
-      </div>
-      <div className="incidents-container">
-        <div className="section-with-btn" style={{ marginTop: 16 }}>
-          <h2>Reported Incidents</h2>
-        </div>
-        {INCIDENTS.map((inc) => (
-          <div className="incident-item" key={inc.id}>
-            <div className="incident-left">
-              <span className="incident-warn">⚠</span>
-              <span className="incident-name">{inc.name}</span>
+      </header>
+
+      {/* Grid */}
+      <section className="grid grid-cols-4 gap-6">
+        {docs.map((doc) => (
+          <div key={doc.id} className="doc-card-blue">
+            <div className="icon-container-blue">
+              <FileText size={40} strokeWidth={1} />
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div className="incident-date">{inc.date}</div>
-              <div className={`severity-badge ${inc.severity.toLowerCase()}`}>
-                — {inc.severity}
+            <div className="space-y-1">
+              <div
+                className="text-[11px] font-bold uppercase truncate w-32"
+                title={doc.name}
+              >
+                {doc.name}
               </div>
+              <div className="text-[9px] text-gray-400 font-bold uppercase">
+                Uploaded by {doc.uploader}
+              </div>
+              <div className="text-[10px] font-bold mt-2">{doc.date}</div>
             </div>
           </div>
         ))}
+      </section>
+
+      {/* Filter Section */}
+      <section className="space-y-8 pt-12 border-t border-gray-100 text-center">
+        <h2 className="text-xl font-bold uppercase tracking-tight">
+          Filter Documents
+        </h2>
+        <div className="flex justify-center -space-x-px">
+          <button
+            onClick={() => setFilter("All")}
+            className={`filter-tab ${filter === "All" ? "active" : ""}`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setFilter("Stable")}
+            className={`filter-tab ${filter === "Stable" ? "active" : ""}`}
+          >
+            Certified Stable Versions
+          </button>
+        </div>
+        <button className="btn-black px-12 mx-auto">Apply Filter</button>
+      </section>
+
+      {/* Versions Section */}
+      <section className="space-y-8 pt-12 border-t border-gray-100">
+        <h2 className="text-xl font-bold text-center uppercase tracking-tight">
+          Document Versions
+        </h2>
+        <div className="flex justify-center">
+          <button
+            onClick={() => alert("Завантаження всіх архівних копій...")}
+            className="btn-black px-12"
+          >
+            Download All
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto mt-10">
+          {docs.map((v) => (
+            <div key={v.id} className="version-item">
+              <div className="flex gap-4">
+                <div className="text-blue-300 pt-1">
+                  <FileText size={24} />
+                </div>
+                <div className="version-info">
+                  <h4>{v.name}</h4>
+                  <p className="version-meta">{v.version || "v2.1 — Final"}</p>
+                  <p className="version-desc">
+                    Latest version available for download.
+                  </p>
+                  <span className="badge-stable">
+                    {v.stable ? "STABLE" : "DRAFT"}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => handleDownload(v.name)}
+                className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-sm hover:opacity-80 transition-opacity"
+              >
+                <Download size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ── Incidents Components ─────────────────────────────────────────────────── */
+function IncidentsPage({ onIncidentClick }) {
+  const { incidents, addIncident } = useContext(AppContext);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", desc: "", severity: "Medium" });
+
+  const handleReport = (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    addIncident(form.name, form.desc, form.severity);
+    setForm({ name: "", desc: "", severity: "Medium" });
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-12 py-16 space-y-24">
+      <header className="text-center space-y-6 flex flex-col items-center">
+        <h1 className="text-4xl font-bold uppercase tracking-tight">
+          Incidents Tab
+        </h1>
+        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+          Overview of reported incidents related to this project.
+        </p>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="btn-black px-12"
+        >
+          + Report Incident
+        </button>
+      </header>
+
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-black bg-transparent border-none cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-6 uppercase tracking-tight">
+              Report Incident
+            </h2>
+            <form onSubmit={handleReport} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-500">
+                  Incident Name
+                </label>
+                <input
+                  className="input-field"
+                  autoFocus
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="What happened?"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-500">
+                  Short Description
+                </label>
+                <textarea
+                  className="input-field h-24 resize-none"
+                  value={form.desc}
+                  onChange={(e) => setForm({ ...form, desc: e.target.value })}
+                  placeholder="Provide some details..."
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-500">
+                  Severity
+                </label>
+                <select
+                  className="input-field"
+                  value={form.severity}
+                  onChange={(e) =>
+                    setForm({ ...form, severity: e.target.value })
+                  }
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="btn-outline px-6"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-black px-6">
+                  Submit Report
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <section className="grid grid-cols-12 gap-8 items-start">
+        <div className="col-span-5">
+          <h2 className="text-3xl font-bold uppercase tracking-tight">
+            Reported Incidents
+          </h2>
+        </div>
+        <div className="col-span-7 divide-y divide-gray-100">
+          {incidents.map((i) => (
+            <div key={i.id} className="flex items-center justify-between py-6">
+              <div className="flex items-center gap-6">
+                <div className="w-12 h-12 flex items-center justify-center border border-gray-100 rounded">
+                  <AlertTriangle size={24} className="text-gray-400" />
+                </div>
+                <span
+                  onClick={() => onIncidentClick(i)}
+                  className="text-sm font-bold uppercase cursor-pointer hover:underline"
+                >
+                  {i.name}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-900">
+                  {i.date} — {i.severity}
+                </div>
+              </div>
+            </div>
+          ))}
+          {incidents.length === 0 && (
+            <div className="py-20 text-center text-gray-200 uppercase text-[10px] font-bold tracking-[0.2em]">
+              Інцидентів не зафіксовано
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function IncidentDetailsPage({ incident, onBack }) {
+  const { updateIncidentDetails } = useContext(AppContext);
+  const [form, setForm] = useState({ ...incident });
+
+  const handleSave = () => {
+    updateIncidentDetails(form);
+    onBack();
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-12 py-16">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-[10px] font-bold uppercase mb-12 text-gray-400 hover:text-black transition-colors"
+      >
+        <ChevronLeft size={14} /> Back to incidents
+      </button>
+
+      <div className="space-y-10">
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold uppercase text-gray-400">
+            Incident Name
+          </label>
+          <input
+            className="text-3xl font-bold bg-transparent border-none w-full focus:outline-none uppercase tracking-tight"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
+              <Calendar size={12} /> Creation Date
+            </label>
+            <input
+              type="text"
+              className="input-field"
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
+              <AlertCircle size={12} /> Severity
+            </label>
+            <select
+              className="input-field"
+              value={form.severity}
+              onChange={(e) => setForm({ ...form, severity: e.target.value })}
+            >
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold uppercase text-gray-400">
+            Description
+          </label>
+          <textarea
+            className="input-field h-32 resize-none"
+            value={form.desc}
+            onChange={(e) => setForm({ ...form, desc: e.target.value })}
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          className="btn-black w-full py-4 uppercase font-bold tracking-widest"
+        >
+          <Save size={16} /> Save Changes
+        </button>
       </div>
     </div>
   );
 }
 
-/* ── Root ─────────────────────────────────────────────────────────────────── */
-export default function ArchonPreview() {
-  const [page, setPage] = useState("dashboard");
-  return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: css }} />
-      <AppShell page={page} setPage={setPage} />
-    </>
-  );
-}
-/*
+/* ── Main App Component ──────────────────────────────────────────────────── */
 export default function App() {
   const [page, setPage] = useState("dashboard");
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [docs, setDocs] = useState(INITIAL_DOCS);
+  const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
+
+  const toggleTask = (id) => {
+    setTasks((ts) =>
+      ts.map((t) => {
+        if (t.id === id) {
+          if (!t.done) return { ...t, done: true, status: "Done" };
+          return { ...t, done: false, status: "To Do" };
+        }
+        return t;
+      }),
+    );
+  };
+
+  const addTask = (text, status) => {
+    setTasks((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        text,
+        status,
+        done: status === "Done",
+        desc: "",
+        deadline: "2026-12-31",
+      },
+    ]);
+  };
+
+  const updateTaskDetails = (updatedTask) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+    );
+  };
+
+  const addDoc = (doc) => {
+    setDocs((prev) => [doc, ...prev]);
+  };
+
+  const addIncident = (name, desc, severity) => {
+    const today = new Date();
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const dateStr = `${months[today.getMonth()]} ${today.getDate()}`;
+
+    setIncidents((prev) => [
+      { id: Date.now(), name, desc, severity, date: dateStr },
+      ...prev,
+    ]);
+  };
+
+  const updateIncidentDetails = (updatedIncident) => {
+    setIncidents((prev) =>
+      prev.map((i) => (i.id === updatedIncident.id ? updatedIncident : i)),
+    );
+  };
+
   return (
-    <>
+    <AppContext.Provider
+      value={{
+        tasks,
+        toggleTask,
+        addTask,
+        updateTaskDetails,
+        docs,
+        addDoc,
+        incidents,
+        addIncident,
+        updateIncidentDetails,
+      }}
+    >
       <style dangerouslySetInnerHTML={{ __html: css }} />
-      <AppShell page={page} setPage={setPage} />
-    </>
+      <AppShell page={page} setPage={setPage}>
+        {page === "dashboard" && (
+          <DashboardPage
+            onProjectClick={(p) => {
+              setSelectedProject(p);
+              setPage("project_details");
+            }}
+            setPage={setPage}
+          />
+        )}
+
+        {page === "projects" && (
+          <div className="max-w-4xl mx-auto p-16 space-y-12">
+            <h1 className="text-4xl font-bold text-center uppercase tracking-tight">
+              Project Registry
+            </h1>
+            <div className="divide-y divide-gray-100 border-t border-gray-100">
+              {INITIAL_PROJECTS.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => {
+                    setSelectedProject(p);
+                    setPage("project_details");
+                  }}
+                  className="flex items-center justify-between py-6 px-4 hover:bg-gray-50 cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-6">
+                    <span className="text-3xl grayscale group-hover:grayscale-0 transition-all">
+                      {p.icon}
+                    </span>
+                    <span className="text-sm font-bold uppercase">
+                      {p.name}
+                    </span>
+                  </div>
+                  <ChevronRight size={18} className="text-gray-300" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {page === "project_details" && selectedProject && (
+          <div className="space-y-0">
+            <div className="bg-gray-50 p-16 text-center border-b border-gray-100">
+              <button
+                onClick={() => setPage("projects")}
+                className="text-[10px] font-bold uppercase mb-4 text-gray-400 hover:text-black"
+              >
+                ← Back to Registry
+              </button>
+              <div className="text-5xl mb-4">{selectedProject.icon}</div>
+              <h1 className="text-3xl font-bold uppercase tracking-tight">
+                {selectedProject.name}
+              </h1>
+              <p className="text-[10px] font-bold uppercase text-gray-400 mt-2 tracking-[0.2em]">
+                {selectedProject.loc} — {selectedProject.status}
+              </p>
+            </div>
+            <TasksPage
+              onTaskClick={(t) => {
+                setSelectedTask(t);
+                setPage("task_details");
+              }}
+            />
+          </div>
+        )}
+
+        {page === "tasks" && (
+          <TasksPage
+            onTaskClick={(t) => {
+              setSelectedTask(t);
+              setPage("task_details");
+            }}
+          />
+        )}
+
+        {page === "task_details" && selectedTask && (
+          <TaskDetailsPage
+            task={selectedTask}
+            onBack={() =>
+              setPage(selectedProject ? "project_details" : "tasks")
+            }
+          />
+        )}
+
+        {page === "documents" && <DocumentsPage />}
+
+        {page === "incidents" && (
+          <IncidentsPage
+            onIncidentClick={(i) => {
+              setSelectedIncident(i);
+              setPage("incident_details");
+            }}
+          />
+        )}
+
+        {page === "incident_details" && selectedIncident && (
+          <IncidentDetailsPage
+            incident={selectedIncident}
+            onBack={() => setPage("incidents")}
+          />
+        )}
+
+        {["analytics", "settings"].includes(page) && (
+          <div className="flex flex-col items-center justify-center h-[70vh] text-gray-100">
+            {page === "analytics" ? (
+              <BarChart3 size={120} strokeWidth={1} />
+            ) : (
+              <Settings size={120} strokeWidth={1} />
+            )}
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] mt-6 text-gray-300">
+              Section {page}
+            </p>
+          </div>
+        )}
+      </AppShell>
+    </AppContext.Provider>
   );
 }
-  */
