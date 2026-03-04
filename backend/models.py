@@ -45,3 +45,15 @@ class Project(Base):
     completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
     archived = Column(Boolean, nullable=False, server_default="false")
     created_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)
+
+
+class ProjectStatusHistory(Base):
+    __tablename__ = "project_status_history"
+    project = relationship("Project", backref="status_history")
+    user = relationship("User")
+
+    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.project_id", ondelete="CASCADE"), nullable=False)
+    status = Column(Enum(ProjectStatus, name="project_status_enum"), nullable=False)
+    changed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    changed_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)

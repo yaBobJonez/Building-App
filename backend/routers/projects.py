@@ -5,11 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from database import SessionDep
-from models import Project, ProjectStatus
+from models import Project, ProjectStatus, ProjectStatusHistory
 from schemas.projects import (
     ProjectCreate,
+    ProjectStatusUpdate,
     ProjectUpdate,
-    ProjectResponse
+    ProjectResponse,
+    ProjectStatusResponse
 )
 
 
@@ -135,14 +137,14 @@ async def update_project(
 # Зміна статусу проєкту
 @router.put("/{project_id}/status",
     responses={
-        400: {"detail": "Invalid status transition"},
+        400: {"detail": "Invalid status transition or user_id"},
         403: {"detail": "Archived project cannot be modified"},
         404: {"detail": "Project not found"}
     }
 )
 async def change_project_status(
     project_id: UUID,
-    status: ProjectStatus,
+    status_update: ProjectStatusUpdate,
     db: SessionDep
 ):
     result = await db.execute(select(Project).where(Project.project_id == project_id))
@@ -152,17 +154,54 @@ async def change_project_status(
 
     if project.archived:
         raise HTTPException(status_code=403, detail="Archived project cannot be modified")
-    if status not in ALLOWED_TRANSITIONS[project.status]:
+    if status_update.status not in ALLOWED_TRANSITIONS[project.status]:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid status transition from {project.status} to {status}"
+            detail=f"Invalid status transition from {project.status} to {status_update.status}"
         )
 
-    project.status = status
-    if status == ProjectStatus.COMPLETED:
+    project.status = status_update.status
+    if status_update.status == ProjectStatus.COMPLETED:
         project.completed_at = datetime.now(timezone.utc)
-    await db.commit()
+
+    history_entry = ProjectStatusHistory(
+        project_id=project.project_id,
+        status=status_update.status,
+        changed_by=status_update.changed_by
+    )
+    db.add(history_entry)
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user_id"
+        )
     return {"message": "Status updated successfully"}
+
+
+# Отримання історії статусів проєкту
+@router.get("/{project_id}/status-history", response_model=list[ProjectStatusResponse],
+    responses={404: {"detail": "Project not found"}}
+)
+async def get_project_status_history(project_id: UUID, db: SessionDep, oldest_first: bool = False):
+    result = await db.execute(select(Project).where(Project.project_id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    history_result = await db.execute(
+        select(ProjectStatusHistory)
+        .where(ProjectStatusHistory.project_id == project_id)
+        .order_by(
+            ProjectStatusHistory.changed_at.asc()
+            if oldest_first
+            else ProjectStatusHistory.changed_at.desc()
+        )
+    )
+    return history_result.scalars().all()
 
 
 # Архівація проєкту

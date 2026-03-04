@@ -14,6 +14,11 @@ class ProjectCreate(BaseModel):
     created_by: UUID
 
 
+class ProjectStatusUpdate(BaseModel):
+    status: ProjectStatus
+    changed_by: UUID
+
+
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
@@ -30,6 +35,15 @@ class ProjectResponse(BaseModel):
     completed_at: Optional[datetime]
     archived: bool
     created_by: UUID
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectStatusResponse(BaseModel):
+    status: ProjectStatus
+    changed_at: datetime
+    changed_by: UUID
 
     class Config:
         from_attributes = True
