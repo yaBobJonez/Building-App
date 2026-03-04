@@ -12,7 +12,7 @@ CREATE TABLE project (
     name varchar(255) NOT NULL,
     address text NOT NULL,
     initial_budget numeric(15,2) NOT NULL,
-    status project_status_enum NOT NULL,
+    status project_status_enum NOT NULL DEFAULT 'ACTIVE',
     created_at timestamptz NOT NULL DEFAULT now(),
     completed_at timestamptz,
     archived boolean NOT NULL DEFAULT false,
