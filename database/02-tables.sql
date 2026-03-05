@@ -36,7 +36,7 @@ CREATE TABLE task (
     title varchar(255) NOT NULL,
     description text,
     deadline date,
-    status task_status_enum NOT NULL,
+    status task_status_enum NOT NULL DEFAULT 'TODO',
     created_at timestamptz NOT NULL DEFAULT now(),
     created_by uuid NOT NULL,
     FOREIGN KEY (project_id) REFERENCES project(project_id) ON DELETE CASCADE,

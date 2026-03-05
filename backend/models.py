@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, Text, Numeric, Boolean, TIMESTAMP, Enum, ForeignKey
+from sqlalchemy import Column, String, Text, Numeric, Boolean, Date, TIMESTAMP, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -19,6 +19,11 @@ class ProjectStatus(str, enum.Enum):
     APPROVED = "APPROVED"
     DENIED = "DENIED"
     COMPLETED = "COMPLETED"
+
+class TaskStatus(str, enum.Enum):
+    TODO = "TODO"
+    IN_PROGRESS = "IN_PROGRESS"
+    DONE = "DONE"
 
 
 class User(Base):
@@ -55,5 +60,31 @@ class ProjectStatusHistory(Base):
     history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("project.project_id", ondelete="CASCADE"), nullable=False)
     status = Column(Enum(ProjectStatus, name="project_status_enum"), nullable=False)
+    changed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    changed_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)
+
+
+class Task(Base):
+    __tablename__ = "task"
+    project = relationship("Project", backref="tasks")
+    creator = relationship("User")
+
+    task_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.project_id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    deadline = Column(Date, nullable=True)
+    status = Column(Enum(TaskStatus, name="task_status_enum"), nullable=False, server_default="TODO")
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)
+
+class TaskStatusHistory(Base):
+    __tablename__ = "task_status_history"
+    task = relationship("Task", backref="status_history")
+    user = relationship("User")
+
+    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(UUID(as_uuid=True), ForeignKey("task.task_id", ondelete="CASCADE"), nullable=False)
+    status = Column(Enum(TaskStatus, name="task_status_enum"), nullable=False)
     changed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     changed_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)
