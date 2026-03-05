@@ -25,6 +25,16 @@ class TaskStatus(str, enum.Enum):
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
 
+class IncidentPriority(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+class IncidentStatus(str, enum.Enum):
+    OPEN = "OPEN"
+    RESOLVED = "RESOLVED"
+
 
 class User(Base):
     __tablename__ = "user"
@@ -78,6 +88,7 @@ class Task(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)
 
+
 class TaskStatusHistory(Base):
     __tablename__ = "task_status_history"
     task = relationship("Task", backref="status_history")
@@ -88,3 +99,19 @@ class TaskStatusHistory(Base):
     status = Column(Enum(TaskStatus, name="task_status_enum"), nullable=False)
     changed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     changed_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)
+
+
+class Incident(Base):
+    __tablename__ = "incident"
+    project = relationship("Project", backref="incidents")
+    creator = relationship("User")
+
+    incident_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.project_id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    priority = Column(Enum(IncidentPriority, name="incident_priority_enum"), nullable=False, server_default="MEDIUM")
+    status = Column(Enum(IncidentStatus, name="incident_status_enum"), nullable=False, server_default="OPEN")
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    resolved_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("user.user_id"), nullable=False)
