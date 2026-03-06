@@ -69,7 +69,7 @@ CREATE TABLE document_version (
     version_number integer NOT NULL,
     file_path text NOT NULL,
     uploaded_at timestamptz NOT NULL DEFAULT now(),
-    status document_status_enum NOT NULL,
+    status document_status_enum NOT NULL DEFAULT 'DRAFT',
     uploaded_by uuid NOT NULL,
     FOREIGN KEY (document_id) REFERENCES document(document_id) ON DELETE CASCADE,
     FOREIGN KEY (uploaded_by) REFERENCES "user"(user_id),
