@@ -25,7 +25,7 @@ router = APIRouter(
 )
 
 # Тека для збереження версій / файлів
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = "/var/lib/archon/files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Дозволені формати файлів (MIME-типи)
