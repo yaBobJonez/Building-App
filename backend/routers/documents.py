@@ -185,7 +185,7 @@ async def get_document_version(version_id: UUID, db: SessionDep):
 )
 async def create_document_version(
     document_id: UUID,
-    data: DocumentVersionCreate,
+    data: DocumentVersionCreate = Depends(),
     file: UploadFile = File(...),
     db: SessionDep = None
 ):

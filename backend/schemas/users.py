@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 from models import UserRole
 
@@ -20,11 +20,10 @@ class UserUpdate(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     user_id: UUID
     email: EmailStr
     full_name: Optional[str]
     role: UserRole
     created_at: datetime
-
-    class Config:
-        from_attributes = True
