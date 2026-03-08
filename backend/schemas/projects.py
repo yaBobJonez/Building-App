@@ -1,16 +1,16 @@
-from typing import Optional
+from typing import Optional, Annotated
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StringConstraints, Field
 
 from models import ProjectStatus
 
 
 class ProjectCreate(BaseModel):
-    name: str
-    address: str
-    initial_budget: Decimal
+    name: Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
+    address: Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
+    initial_budget: Annotated[Decimal, Field(ge=0)]
     created_by: UUID
 
 
@@ -26,6 +26,8 @@ class ProjectUpdate(BaseModel):
 
 
 class ProjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     project_id: UUID
     name: str
     address: str
@@ -36,14 +38,10 @@ class ProjectResponse(BaseModel):
     archived: bool
     created_by: UUID
 
-    class Config:
-        from_attributes = True
-
 
 class ProjectStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     status: ProjectStatus
     changed_at: datetime
     changed_by: UUID
-
-    class Config:
-        from_attributes = True

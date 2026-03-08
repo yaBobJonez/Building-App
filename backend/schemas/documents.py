@@ -1,7 +1,7 @@
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from models import DocumentStatus
 
@@ -23,6 +23,8 @@ class DocumentVersionCreate(BaseModel):
 
 
 class DocumentVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     version_id: UUID
     document_id: UUID
     version_number: int
@@ -31,19 +33,15 @@ class DocumentVersionResponse(BaseModel):
     status: DocumentStatus
     uploaded_by: UUID
 
-    class Config:
-        from_attributes = True
-
 
 class DocumentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     document_id: UUID
     project_id: UUID
     title: str
     created_at: datetime
     created_by: UUID
-
-    class Config:
-        from_attributes = True
 
 
 class DocumentWithVersionsResponse(DocumentResponse):

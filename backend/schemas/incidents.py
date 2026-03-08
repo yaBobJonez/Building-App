@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from models import IncidentPriority, IncidentStatus
 
@@ -21,6 +21,8 @@ class IncidentUpdate(BaseModel):
 
 
 class IncidentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     incident_id: UUID
     project_id: UUID
     title: str
@@ -30,6 +32,3 @@ class IncidentResponse(BaseModel):
     created_at: datetime
     resolved_at: Optional[datetime]
     created_by: UUID
-
-    class Config:
-        from_attributes = True

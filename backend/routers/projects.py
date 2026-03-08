@@ -163,6 +163,7 @@ async def change_project_status(
     project.status = status_update.status
     if status_update.status == ProjectStatus.COMPLETED:
         project.completed_at = datetime.now(timezone.utc)
+        project.archived = True
 
     history_entry = ProjectStatusHistory(
         project_id=project.project_id,
