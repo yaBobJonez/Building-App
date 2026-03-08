@@ -1,4 +1,10 @@
-import React, { useState, useRef, createContext, useContext } from "react";
+import React, {
+  useState,
+  useRef,
+  createContext,
+  useContext,
+  useEffect,
+} from "react";
 import {
   LayoutDashboard,
   Layers,
@@ -20,199 +26,148 @@ import {
   Save,
   ChevronLeft,
   AlertCircle,
+  UploadCloud,
 } from "lucide-react";
 
-// Контекст для керування станом
-const AppContext = createContext();
+const API_BASE_URL = "http://localhost:8000";
 
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap');
-  :root {
-    --font:'Public Sans','Helvetica Neue',Arial,sans-serif;
-  }
-  body { font-family:var(--font); background-color: #ffffff; color: #1a1a1a; margin: 0; }
-  
-  .status-label { font-size:10px; font-weight:700; display: flex; align-items: center; gap: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-  
-  .input-field { border: 1px solid #e5e7eb; padding: 10px 12px; border-radius: 2px; font-size: 12px; width: 100%; transition: border-color 0.2s; background: white; }
-  .input-field:focus { border-color: #000; outline: none; }
-
-  .btn-black { background: #000; color: #fff; font-size: 10px; font-weight: 700; padding: 10px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.05em; transition: opacity 0.2s; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .btn-black:hover { opacity: 0.8; }
-  
-  .btn-outline { border: 1px solid #e5e7eb; color: #000; font-size: 10px; font-weight: 700; padding: 10px 20px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.05em; background: transparent; cursor: pointer; }
-  .btn-outline:hover { background: #f9fafb; }
-  
-  .card { border: 1px solid #f3f4f6; border-radius: 2px; padding: 24px; transition: all 0.2s; }
-  .card:hover { border-color: #d1d5db; }
-
-  .custom-checkbox { width: 24px; height: 24px; border: 2px solid #000; border-radius: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
-  .custom-checkbox.checked { background: #000; }
-  .custom-checkbox.checked::after { content: '✓'; color: #fff; font-size: 14px; font-weight: bold; }
-
-  .modal-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
-  .modal-content { background: white; border: 1px solid #000; width: 100%; max-width: 450px; padding: 32px; position: relative; }
-  
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .animate-spin { animation: spin 1s linear infinite; }
-  /* Оновлені стилі для документів */
-  .doc-card-blue { 
-    border: 1px solid #f3f4f6; 
-    padding: 32px 24px; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    text-align: center;
-    transition: all 0.2s;
-  }
-  .doc-card-blue:hover { border-color: #3b82f6; }
-  
-  .icon-container-blue {
-    padding: 12px;
-    background: #eff6ff;
-    color: #3b82f6;
-    border: 1px solid #dbeafe;
-    border-radius: 4px;
-    margin-bottom: 16px;
-  }
-
-  .filter-tab {
-    padding: 6px 16px;
-    border: 1px solid #e5e7eb;
-    font-size: 10px;
-    font-weight: 700;
-    cursor: pointer;
-    background: white;
-  }
-  .filter-tab.active {
-    background: black;
-    color: white;
-    border-color: black;
-  }
-
-  .version-item {
-    border: 1px solid #f3f4f6;
-    padding: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-  }
-  .version-info h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
-  .version-meta { font-size: 10px; color: #9ca3af; font-weight: 600; }
-  .version-desc { font-size: 10px; color: #6b7280; font-style: italic; margin-top: 4px; line-height: 1.4; }
-  .badge-stable { 
-    font-size: 9px; 
-    font-weight: 800; 
-    color: #9ca3af; 
-    border: 1px solid #f3f4f6; 
-    padding: 1px 4px; 
-    display: inline-block; 
-    margin-top: 8px;
-  }
-`;
-
-const INITIAL_PROJECTS = [
+// --- Fallback Data ---
+const MOCK_PROJECTS = [
   {
-    id: 1,
+    project_id: "1",
     name: "ЖК 'Sunny Tower'",
-    loc: "Kyiv",
+    address: "Kyiv",
     status: "Active",
     icon: "🏗️",
   },
-  { id: 2, name: "Warehouse A", loc: "Lviv", status: "Approved", icon: "🏭" },
   {
-    id: 3,
-    name: "ЖК 'Cloud Tower'",
-    loc: "Kyiv",
-    status: "Denied",
-    icon: "🏗️",
+    project_id: "2",
+    name: "Warehouse A",
+    address: "Lviv",
+    status: "Approved",
+    icon: "🏭",
   },
-  { id: 4, name: "Warehouse B", loc: "Lviv", status: "Pending", icon: "⌛" },
-  { id: 5, name: "ЖК 'Rainy Tower'", loc: "Kyiv", status: "Done", icon: "✅" },
 ];
 
-const INITIAL_TASKS = [
+const MOCK_TASKS = [
   {
-    id: 1,
-    text: "Pour concrete foundation",
+    task_id: "101",
+    title: "Pour concrete foundation",
     status: "In Progress",
-    done: false,
-    desc: "Заливка фундаменту основного корпусу А1. Потрібно перевірити якість суміші.",
     deadline: "2026-03-10",
   },
   {
-    id: 2,
-    text: "Site preparation",
+    task_id: "102",
+    title: "Site preparation",
     status: "Done",
-    done: true,
-    desc: "Очищення території та встановлення паркану.",
     deadline: "2026-02-28",
-  },
-  {
-    id: 3,
-    text: "Wall construction",
-    status: "To Do",
-    done: false,
-    desc: "Початок цегляної кладки другого поверху.",
-    deadline: "2026-04-15",
   },
 ];
 
-const INITIAL_DOCS = [
+const MOCK_DOCS = [
   {
-    id: 1,
-    name: "Project Plans",
+    document_id: "1",
+    title: "Project Plans",
     uploader: "John Smith",
-    date: "2025-10-15",
+    created_at: "2025-10-15",
     version: "v2.1 Final",
     stable: true,
   },
   {
-    id: 2,
-    name: "Site Reports",
+    document_id: "2",
+    title: "Site Reports",
     uploader: "Jane Smith",
-    date: "2025-10-10",
+    created_at: "2025-10-10",
     version: "v1.5 Draft",
     stable: false,
   },
   {
-    id: 3,
-    name: "Inspection Certificates",
+    document_id: "3",
+    title: "Inspection Certificates",
     uploader: "Mike Wayne",
-    date: "2025-09-30",
+    created_at: "2025-09-30",
     version: "v1.0 Stable",
     stable: true,
   },
   {
-    id: 4,
-    name: "Contracts",
+    document_id: "4",
+    title: "Contracts",
     uploader: "Sarah Lyon",
-    date: "2025-08-25",
+    created_at: "2025-08-25",
     version: "v1.3 Draft",
     stable: false,
   },
 ];
 
-const INITIAL_INCIDENTS = [
+const MOCK_INCIDENTS = [
   {
-    id: 1,
-    name: "Broken equipment on site B",
+    incident_id: "1",
+    title: "Broken equipment on site B",
     date: "Feb 20",
-    severity: "Critical",
-    desc: "Зламаний баштовий кран. Потребує термінового ремонту або заміни деталей.",
+    priority: "Critical",
+    description: "Зламаний кран.",
   },
   {
-    id: 2,
-    name: "Weather delay alert",
+    incident_id: "2",
+    title: "Weather delay alert",
     date: "Feb 19",
-    severity: "Medium",
-    desc: "Сильний вітер перешкоджає проведенню висотних робіт.",
+    priority: "Medium",
+    description: "Сильний вітер.",
   },
 ];
 
-/* ── App Shell ───────────────────────────────────────────────────────────── */
-function AppShell({ page, setPage, children }) {
+const AppContext = createContext();
+
+const cssStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap');
+  :root { --font:'Public Sans', sans-serif; }
+  body { font-family:var(--font); background-color: #ffffff; color: #1a1a1a; margin: 0; }
+  .input-field { border: 1px solid #e5e7eb; padding: 10px 12px; border-radius: 2px; font-size: 12px; width: 100%; background: white; }
+  .btn-black { background: #000; color: #fff; font-size: 10px; font-weight: 700; padding: 10px 20px; border-radius: 2px; text-transform: uppercase; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-outline { border: 1px solid #e5e7eb; color: #000; font-size: 10px; font-weight: 700; padding: 10px 20px; border-radius: 2px; text-transform: uppercase; background: transparent; cursor: pointer; }
+  .custom-checkbox { width: 24px; height: 24px; border: 2px solid #000; border-radius: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+  .custom-checkbox.checked { background: #000; }
+  .custom-checkbox.checked::after { content: '✓'; color: #fff; font-size: 14px; font-weight: bold; }
+  .filter-tab { padding: 6px 16px; border: 1px solid #e5e7eb; font-size: 10px; font-weight: 700; cursor: pointer; background: white; }
+  .filter-tab.active { background: black; color: white; border-color: black; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+  .modal-content { background: white; border: 1px solid #000; width: 100%; max-width: 450px; padding: 32px; position: relative; }
+  .doc-card-blue { border: 1px solid #f3f4f6; padding: 32px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .icon-container-blue { padding: 12px; background: #eff6ff; color: #3b82f6; border-radius: 4px; margin-bottom: 16px; }
+  .card { 
+  border: 1px solid #f3f4f6; 
+  border-radius: 2px; 
+  padding: 24px; 
+  transition: all 0.2s; 
+}
+.card:hover { 
+  border-color: #000; 
+  background-color: #f9fafb; /* опціонально для кращого візуального відгуку */
+}
+`;
+
+/* ── Components ── */
+
+function Modal({ isOpen, onClose, title, children }) {
+  if (!isOpen) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold uppercase tracking-tight">
+            {title}
+          </h2>
+          <button onClick={onClose} className="text-gray-400">
+            <X size={24} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function AppShell({ page, setPage, children, isLoading }) {
   const navigation = [
     { name: "Dashboard", key: "dashboard", icon: LayoutDashboard },
     { name: "Projects", key: "projects", icon: Layers },
@@ -222,24 +177,17 @@ function AppShell({ page, setPage, children }) {
 
   return (
     <div className="flex h-screen bg-white text-slate-900 overflow-hidden">
-      <aside className="w-[200px] flex-shrink-0 border-r border-gray-100 bg-gray-50 flex flex-col">
-        <div className="p-4 flex items-center gap-2 border-b border-gray-100 bg-white">
+      <aside className="w-[200px] border-r border-gray-100 bg-gray-50 flex flex-col">
+        <div className="p-4 flex items-center gap-2 border-b bg-white">
           <Layers size={18} />
-          <h1 className="text-[11px] font-bold uppercase tracking-tight">
-            Construction Dashboard
-          </h1>
+          <h1 className="text-[11px] font-bold uppercase">ARCHON System</h1>
         </div>
         <nav className="flex-1 py-4 px-2 space-y-1">
           {navigation.map((item) => (
             <button
               key={item.key}
               onClick={() => setPage(item.key)}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold rounded transition-colors text-left border-none cursor-pointer ${
-                page === item.key ||
-                (item.key === "projects" && page === "project_details")
-                  ? "bg-gray-200 text-black shadow-sm"
-                  : "text-gray-400 hover:text-black bg-transparent"
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold rounded text-left border-none cursor-pointer ${page === item.key || (item.key === "projects" && page === "project_details") ? "bg-gray-200 text-black shadow-sm" : "text-gray-400 hover:text-black bg-transparent"}`}
             >
               <item.icon size={14} />
               {item.name}
@@ -247,127 +195,112 @@ function AppShell({ page, setPage, children }) {
           ))}
         </nav>
       </aside>
-
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-12 border-b border-gray-100 bg-white flex items-center justify-between px-8 flex-shrink-0">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+        <header className="h-12 border-b bg-white flex items-center justify-between px-8 flex-shrink-0">
+          <div className="text-[10px] font-bold uppercase text-gray-400">
             {page.replace("_", " ")}
           </div>
           <div className="flex items-center gap-6">
             <nav className="flex gap-4 text-[10px] font-bold uppercase text-gray-400">
-              <button
-                onClick={() => setPage("dashboard")}
-                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
-              >
-                Home
-              </button>
-              <button
-                onClick={() => setPage("tasks")}
-                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
-              >
-                Tasks
-              </button>
-              <button
-                onClick={() => setPage("documents")}
-                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
-              >
-                Documents
-              </button>
-              <button
-                onClick={() => setPage("incidents")}
-                className="hover:text-black bg-transparent border-none cursor-pointer font-bold uppercase"
-              >
-                Incidents
-              </button>
+              {["dashboard", "tasks", "documents", "incidents"].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className="hover:text-black bg-transparent border-none cursor-pointer uppercase font-bold"
+                >
+                  {p}
+                </button>
+              ))}
             </nav>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search in site"
-                className="pr-8 pl-3 py-1 bg-white border border-gray-200 rounded text-[10px] w-48 focus:outline-none focus:border-black"
-              />
-              <Search
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300"
-                size={10}
-              />
-            </div>
-            <div className="w-7 h-7 rounded-full bg-gray-200 overflow-hidden border border-gray-100">
-              <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-                alt="avatar"
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <div className="w-7 h-7 rounded-full bg-gray-200" />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-4">
+              <Loader2 className="animate-spin" size={32} />
+              <p className="text-[10px] font-bold uppercase">Loading...</p>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
     </div>
   );
 }
 
-/* ── Dashboard Page ──────────────────────────────────────────────────────── */
+/* ── Dashboard Page ── */
 function DashboardPage({ onProjectClick, setPage }) {
+  const { projects, createProject } = useContext(AppContext);
+  const [newProject, setNewProject] = useState({
+    name: "",
+    address: "",
+    budget: "",
+  });
   const createFormRef = useRef(null);
-  const scrollToCreate = () =>
-    createFormRef.current?.scrollIntoView({ behavior: "smooth" });
+
+  // Локальний стан для форми
+  const [formData, setFormData] = useState({
+    name: "",
+    address: "",
+    budget: "",
+  });
+
+  const handleCreate = () => {
+    if (!formData.name || !formData.address)
+      return alert("Fill required fields");
+    createProject(formData);
+    setFormData({ name: "", address: "", budget: "" }); // Очищення форми
+  };
 
   return (
     <div className="max-w-5xl mx-auto p-12 space-y-24 pb-32">
       <section className="text-center space-y-8 flex flex-col items-center">
-        <h1 className="text-4xl font-bold">Construction Projects</h1>
-        <button onClick={scrollToCreate} className="btn-black px-12">
+        <h1 className="text-4xl font-bold uppercase tracking-tight">
+          Construction Projects
+        </h1>
+        <button
+          onClick={() =>
+            createFormRef.current?.scrollIntoView({ behavior: "smooth" })
+          }
+          className="btn-black px-12"
+        >
           + New Project
         </button>
       </section>
-
       <section className="grid grid-cols-12 gap-8 items-start">
-        <div className="col-span-5">
+        <div className="col-span-5 pt-4">
           <h2 className="text-3xl font-bold uppercase tracking-tight">
             Project Registry
           </h2>
         </div>
         <div className="col-span-7 divide-y divide-gray-50">
-          {INITIAL_PROJECTS.map((p) => (
+          {projects.map((p) => (
             <div
-              key={p.id}
+              key={p.project_id}
               onClick={() => onProjectClick(p)}
-              className="flex items-center justify-between py-4 px-2 hover:bg-gray-50 cursor-pointer transition-colors group"
+              className="flex items-center justify-between py-4 px-2 hover:bg-gray-50 cursor-pointer group"
             >
               <div className="flex items-center gap-6">
-                <div className="w-10 h-10 bg-gray-100 flex items-center justify-center text-xl rounded grayscale group-hover:grayscale-0 transition-all">
-                  {p.icon}
+                <div className="w-10 h-10 bg-gray-100 flex items-center justify-center text-xl rounded grayscale group-hover:grayscale-0">
+                  {p.icon || "🏗️"}
                 </div>
                 <div>
-                  <div className="text-xs font-bold uppercase">{p.name}</div>
+                  <div className="text-sm font-bold uppercase">{p.name}</div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-tight">
-                    {p.loc}
+                    {p.address}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider">
+              <div className="text-[10px] font-bold uppercase text-gray-400">
                 {p.status}
-                {p.status === "Active" && (
-                  <Settings size={14} className="text-gray-400" />
-                )}
-                {p.status === "Approved" && (
-                  <CheckCircle2 size={14} className="text-gray-400" />
-                )}
-                {p.status === "Denied" && (
-                  <XCircle size={14} className="text-gray-400" />
-                )}
-                {p.status === "Pending" && (
-                  <Clock size={14} className="text-gray-400" />
-                )}
-                {p.status === "Done" && (
-                  <CheckCircle2 size={14} className="text-gray-400" />
-                )}
               </div>
             </div>
           ))}
         </div>
       </section>
-
+      {/* Секція Quick Access (image_c96e62) */}
       <section className="text-center space-y-12">
         <h2 className="text-2xl font-bold uppercase tracking-tight">
           Quick Access
@@ -396,7 +329,7 @@ function DashboardPage({ onProjectClick, setPage }) {
             <div
               key={c.key}
               onClick={() => setPage(c.key)}
-              className="card flex flex-col items-center text-center gap-5 cursor-pointer"
+              className="card flex flex-col items-center text-center gap-5 cursor-pointer hover:border-black transition-all"
             >
               <div className="p-5 border border-black rounded-lg">
                 <c.icon size={36} strokeWidth={1} />
@@ -412,6 +345,7 @@ function DashboardPage({ onProjectClick, setPage }) {
         </div>
       </section>
 
+      {/* Секція Overview (image_c96e62) */}
       <section className="text-center space-y-12">
         <div className="space-y-2">
           <h2 className="text-2xl font-bold uppercase">Overview</h2>
@@ -421,14 +355,30 @@ function DashboardPage({ onProjectClick, setPage }) {
         </div>
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: "Total Projects", val: "3", change: null },
-            { label: "Completed", val: "1", change: "+1" },
-            { label: "In Progress", val: "1", change: "0" },
-            { label: "Pending", val: "1", change: "0" },
+            { label: "Total Projects", val: projects.length, change: null },
+            {
+              label: "Completed",
+              val: projects.filter(
+                (p) => p.status === "Done" || p.status === "Approved",
+              ).length,
+              change: "+1",
+            },
+            {
+              label: "In Progress",
+              val: projects.filter(
+                (p) => p.status === "Active" || p.status === "In Progress",
+              ).length,
+              change: "0",
+            },
+            {
+              label: "Pending",
+              val: projects.filter((p) => p.status === "Pending").length,
+              change: "0",
+            },
           ].map((s) => (
             <div
               key={s.label}
-              className="p-8 border border-gray-100 text-left rounded-sm"
+              className="p-8 border border-gray-100 text-left rounded-sm bg-white"
             >
               <p className="text-[10px] text-gray-400 uppercase font-bold mb-2 tracking-widest">
                 {s.label}
@@ -445,706 +395,1072 @@ function DashboardPage({ onProjectClick, setPage }) {
           ))}
         </div>
       </section>
-
       <section
         ref={createFormRef}
-        className="text-center space-y-12 pt-12 border-t border-gray-50"
+        className="pt-12 border-t border-gray-50 text-center"
       >
-        <h2 className="text-2xl font-bold uppercase">Create New Project</h2>
+        <h2 className="text-2xl font-bold uppercase mb-10">
+          Initialize Project
+        </h2>
         <div className="grid grid-cols-3 gap-6 text-left">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-400">
-              Project Name
-            </label>
-            <input className="input-field" placeholder="Enter project name" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-400">
-              Site Address
-            </label>
-            <input className="input-field" placeholder="Enter site address" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-400">
-              Initial Budget
-            </label>
-            <input className="input-field" placeholder="Enter budget amount" />
-          </div>
+          <input
+            className="input-field"
+            placeholder="Name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          />
+          <input
+            className="input-field"
+            placeholder="Address"
+            value={formData.address}
+            onChange={(e) =>
+              setFormData({ ...formData, address: e.target.value })
+            }
+          />
+          <input
+            className="input-field"
+            placeholder="Budget"
+            value={formData.budget}
+            onChange={(e) =>
+              setFormData({ ...formData, budget: e.target.value })
+            }
+          />
         </div>
-        <div className="flex justify-center gap-4">
-          <button className="btn-outline px-16">Cancel</button>
-          <button className="btn-black px-16">Create</button>
+        <div className="flex justify-center gap-4 mt-8">
+          <button
+            className="btn-outline px-16"
+            onClick={() => setFormData({ name: "", address: "", budget: "" })}
+          >
+            Cancel
+          </button>
+          <button className="btn-black px-16" onClick={handleCreate}>
+            Create
+          </button>
         </div>
       </section>
-
-      <footer className="text-center pt-20 flex justify-center gap-10 text-[10px] font-bold uppercase text-gray-400">
-        <span>© 2026 TechBuild</span>
-        <a href="#" className="hover:text-black">
-          Privacy Policy
-        </a>
-        <a href="#" className="hover:text-black">
-          Terms of Service
-        </a>
-      </footer>
     </div>
   );
 }
 
-/* ── Tasks Components ────────────────────────────────────────────────────── */
-function TasksPage({ onTaskClick }) {
-  const { tasks, toggleTask, addTask } = useContext(AppContext);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState({ text: "", status: "To Do" });
+/* ── Tasks Page ── */
+function TasksPage() {
+  const { tasks, toggleTask, createTask, updateTaskDetails } =
+    useContext(AppContext);
+  const [modalMode, setModalMode] = useState(null);
+  const [activeTask, setActiveTask] = useState(null);
+  // Нові стани для розширеної фільтрації
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const handleAdd = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.text.trim()) return;
-    addTask(form.text, form.status);
-    setForm({ text: "", status: "To Do" });
-    setIsModalOpen(false);
+    if (modalMode === "add") {
+      await createTask(activeTask); // FR-05
+    } else if (modalMode === "edit") {
+      await updateTaskDetails(activeTask); // Оновлення
+    }
+    setModalMode(null);
+    setActiveTask(null);
   };
+
+  const displayedTasks =
+    statusFilter === "ALL"
+      ? tasks
+      : tasks.filter((t) => t.status === statusFilter);
+
+  const taskStatuses = ["ALL", "TODO", "IN_PROGRESS", "DONE"];
 
   return (
     <div className="max-w-4xl mx-auto p-12 py-16">
       <header className="text-center space-y-4 mb-20">
-        <h1 className="text-3xl font-bold">Today's Tasks</h1>
-        <p className="text-[10px] text-gray-400 font-bold uppercase">
-          Keep track of all your engineering tasks.
-        </p>
-        <div className="flex justify-center gap-3 pt-4">
-          <button className="btn-outline">Filter Tasks</button>
-          <button onClick={() => setIsModalOpen(true)} className="btn-black">
-            Add New Task
+        <h1 className="text-3xl font-bold uppercase tracking-tight">
+          Today's Tasks
+        </h1>
+        <div className="flex justify-center gap-3 relative">
+          {/* Кнопка фільтрації з випадаючим списком */}
+          <div className="relative">
+            <button
+              onClick={() => setShowFilterMenu(!showFilterMenu)}
+              className={`btn-outline ${statusFilter !== "ALL" ? "bg-gray-100 border-black" : ""}`}
+            >
+              Filter: {statusFilter}
+            </button>
+
+            {showFilterMenu && (
+              <div className="absolute top-full mt-2 w-40 bg-white border border-black z-50 shadow-xl">
+                {taskStatuses.map((status) => (
+                  <button
+                    key={status}
+                    className="w-full px-4 py-2 text-[10px] font-bold uppercase text-left hover:bg-gray-50 border-b last:border-0"
+                    onClick={() => {
+                      setStatusFilter(status);
+                      setShowFilterMenu(false);
+                    }}
+                  >
+                    {status.replace("_", " ")}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => {
+              setActiveTask({ title: "", status: "TODO" });
+              setModalMode("add");
+            }}
+            className="btn-black"
+          >
+            + Add New Task
           </button>
         </div>
       </header>
 
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-black bg-transparent border-none cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-xl font-bold mb-6 uppercase">New Task</h2>
-            <form onSubmit={handleAdd} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-gray-500">
-                  Task Title
-                </label>
-                <input
-                  className="input-field"
-                  autoFocus
-                  value={form.text}
-                  onChange={(e) => setForm({ ...form, text: e.target.value })}
-                  placeholder="Enter task..."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-gray-500">
-                  Status
-                </label>
-                <select
-                  className="input-field"
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                >
-                  <option value="To Do">To Do</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Done">Done</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="btn-outline px-6"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-black px-6">
-                  Add
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-xl mx-auto space-y-12">
-        <h2 className="text-2xl font-bold text-center uppercase tracking-tight">
+      <div className="max-w-xl mx-auto space-y-6">
+        <h2 className="text-2xl font-bold text-center uppercase mb-10">
           Task List
         </h2>
-        <div className="space-y-6">
-          {tasks.map((t) => (
-            <div
-              key={t.id}
-              className="flex items-center justify-between py-2 border-b border-gray-50 pb-4"
-            >
-              <div className="flex items-center gap-6">
-                <div
-                  className={`custom-checkbox ${t.done ? "checked" : ""}`}
-                  onClick={() => toggleTask(t.id)}
-                />
-                <span
-                  onClick={() => onTaskClick(t)}
-                  className={`text-sm font-semibold cursor-pointer hover:underline ${t.done ? "text-gray-300 line-through" : "text-black"}`}
-                >
-                  {t.text}
-                </span>
-              </div>
-              <span className="text-[9px] font-bold uppercase text-gray-400 bg-gray-50 px-2 py-1">
-                {t.status}
+        {displayedTasks.map((t) => (
+          <div
+            key={t.task_id}
+            className="flex items-center justify-between py-4 border-b border-gray-50"
+          >
+            <div className="flex items-center gap-6">
+              {/* ВИПРАВЛЕНО: Чекбокс тепер перевіряє статус DONE */}
+              <div
+                className={`custom-checkbox ${t.status === "DONE" ? "checked" : ""}`}
+                onClick={() => toggleTask(t.task_id)}
+              />
+              <span
+                onClick={() => {
+                  setActiveTask(t);
+                  setModalMode("edit");
+                }}
+                className={`text-sm font-semibold cursor-pointer hover:underline ${t.status === "DONE" ? "text-gray-300 line-through" : ""}`}
+              >
+                {t.title}
               </span>
             </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TaskDetailsPage({ task, onBack }) {
-  const { updateTaskDetails } = useContext(AppContext);
-  const [form, setForm] = useState({ ...task });
-
-  const handleSave = () => {
-    updateTaskDetails(form);
-    onBack();
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto p-12 py-16">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-[10px] font-bold uppercase mb-12 text-gray-400 hover:text-black transition-colors"
-      >
-        <ChevronLeft size={14} /> Back to tasks
-      </button>
-
-      <div className="space-y-10">
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-gray-400">
-            Task Title
-          </label>
-          <input
-            className="text-3xl font-bold bg-transparent border-none w-full focus:outline-none"
-            value={form.text}
-            onChange={(e) => setForm({ ...form, text: e.target.value })}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-8">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
-              <Calendar size={12} /> Deadline
-            </label>
-            <input
-              type="date"
-              className="input-field"
-              value={form.deadline}
-              onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
-              <Info size={12} /> Status
-            </label>
-            <select
-              className="input-field"
-              value={form.status}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  status: e.target.value,
-                  done: e.target.value === "Done",
-                })
-              }
-            >
-              <option value="To Do">To Do</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Done">Done</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-gray-400">
-            Description
-          </label>
-          <textarea
-            className="input-field h-32 resize-none"
-            value={form.desc}
-            onChange={(e) => setForm({ ...form, desc: e.target.value })}
-          />
-        </div>
-
-        <button onClick={handleSave} className="btn-black w-full py-4">
-          <Save size={16} /> Save Changes
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ── Documents Page ──────────────────────────────────────────────────────── */
-function DocumentsPage() {
-  const { docs, addDoc } = useContext(AppContext);
-  const [filter, setFilter] = useState("All");
-  const fileInputRef = useRef(null);
-
-  const handleDownload = (docName) => {
-    // Імітація завантаження
-    const element = document.createElement("a");
-    const file = new Blob(["Контент документа: " + docName], {
-      type: "text/plain",
-    });
-    element.href = URL.createObjectURL(file);
-    element.download = `${docName}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-  };
-
-  return (
-    <div className="max-w-5xl mx-auto p-12 py-10 space-y-16">
-      {/* Header */}
-      <header className="text-center space-y-4">
-        <h2 className="text-xl font-bold uppercase tracking-tight">
-          Documents
-        </h2>
-        <p className="text-[10px] text-gray-400 font-bold uppercase">
-          Your upload history and available documents.
-        </p>
-        <div className="pt-4">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="btn-black px-12 mx-auto"
-          >
-            Upload Files
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files[0])
-                addDoc({
-                  id: Date.now(),
-                  name: e.target.files[0].name,
-                  uploader: "Admin",
-                  date: "2026-03-03",
-                  version: "v1.0 Draft",
-                  stable: false,
-                });
-            }}
-          />
-        </div>
-      </header>
-
-      {/* Grid */}
-      <section className="grid grid-cols-4 gap-6">
-        {docs.map((doc) => (
-          <div key={doc.id} className="doc-card-blue">
-            <div className="icon-container-blue">
-              <FileText size={40} strokeWidth={1} />
-            </div>
-            <div className="space-y-1">
-              <div
-                className="text-[11px] font-bold uppercase truncate w-32"
-                title={doc.name}
-              >
-                {doc.name}
-              </div>
-              <div className="text-[9px] text-gray-400 font-bold uppercase">
-                Uploaded by {doc.uploader}
-              </div>
-              <div className="text-[10px] font-bold mt-2">{doc.date}</div>
-            </div>
+            <span className="text-[9px] font-bold uppercase text-gray-400 bg-gray-50 px-2 py-1">
+              {t.status.replace("_", " ")}
+            </span>
           </div>
         ))}
-      </section>
+      </div>
+      {/* ... (Modal для Tasks) ... */}
+      <Modal
+        isOpen={!!modalMode}
+        onClose={() => setModalMode(null)}
+        title={modalMode === "add" ? "New Task" : "Edit Task"}
+      >
+        <form onSubmit={handleSave} className="space-y-6 text-left">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Title
+            </label>
+            <input
+              className="input-field"
+              value={activeTask?.title || ""}
+              onChange={(e) =>
+                setActiveTask({ ...activeTask, title: e.target.value })
+              }
+              required
+            />
+          </div>
 
-      {/* Filter Section */}
-      <section className="space-y-8 pt-12 border-t border-gray-100 text-center">
-        <h2 className="text-xl font-bold uppercase tracking-tight">
-          Filter Documents
-        </h2>
-        <div className="flex justify-center -space-x-px">
-          <button
-            onClick={() => setFilter("All")}
-            className={`filter-tab ${filter === "All" ? "active" : ""}`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilter("Stable")}
-            className={`filter-tab ${filter === "Stable" ? "active" : ""}`}
-          >
-            Certified Stable Versions
-          </button>
-        </div>
-        <button className="btn-black px-12 mx-auto">Apply Filter</button>
-      </section>
-
-      {/* Versions Section */}
-      <section className="space-y-8 pt-12 border-t border-gray-100">
-        <h2 className="text-xl font-bold text-center uppercase tracking-tight">
-          Document Versions
-        </h2>
-        <div className="flex justify-center">
-          <button
-            onClick={() => alert("Завантаження всіх архівних копій...")}
-            className="btn-black px-12"
-          >
-            Download All
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto mt-10">
-          {docs.map((v) => (
-            <div key={v.id} className="version-item">
-              <div className="flex gap-4">
-                <div className="text-blue-300 pt-1">
-                  <FileText size={24} />
-                </div>
-                <div className="version-info">
-                  <h4>{v.name}</h4>
-                  <p className="version-meta">{v.version || "v2.1 — Final"}</p>
-                  <p className="version-desc">
-                    Latest version available for download.
-                  </p>
-                  <span className="badge-stable">
-                    {v.stable ? "STABLE" : "DRAFT"}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => handleDownload(v.name)}
-                className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-sm hover:opacity-80 transition-opacity"
-              >
-                <Download size={16} />
-              </button>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase text-gray-400">
+                Deadline
+              </label>
+              <input
+                type="date"
+                className="input-field"
+                value={activeTask?.deadline || ""}
+                onChange={(e) =>
+                  setActiveTask({ ...activeTask, deadline: e.target.value })
+                }
+              />
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase text-gray-400">
+                Status
+              </label>
+              <select
+                className="input-field"
+                value={activeTask?.status || "TODO"}
+                onChange={(e) =>
+                  setActiveTask({ ...activeTask, status: e.target.value })
+                }
+              >
+                <option value="TODO">To Do</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="DONE">Done</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Description
+            </label>
+            <textarea
+              className="input-field h-32 resize-none"
+              value={activeTask?.description || ""}
+              onChange={(e) =>
+                setActiveTask({ ...activeTask, description: e.target.value })
+              }
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn-black w-full py-4 uppercase font-bold tracking-widest"
+          >
+            {modalMode === "add" ? "Create Task" : "Save Changes"}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }
 
-/* ── Incidents Components ─────────────────────────────────────────────────── */
-function IncidentsPage({ onIncidentClick }) {
-  const { incidents, addIncident } = useContext(AppContext);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", desc: "", severity: "Medium" });
+/* ── Documents Page ── */
+function DocumentsPage() {
+  const {
+    docs,
+    uploadDocument,
+    createNewVersion,
+    updateVersionStatus,
+    downloadVersion,
+    selectedProject,
+  } = useContext(AppContext);
 
-  const handleReport = (e) => {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    addIncident(form.name, form.desc, form.severity);
-    setForm({ name: "", desc: "", severity: "Medium" });
-    setIsModalOpen(false);
+  const fileInputRef = useRef(null);
+  const versionInputRef = useRef(null);
+  const [targetDocId, setTargetDocId] = useState(null);
+  const [activeFilter, setActiveFilter] = useState("All");
+
+  // Обробник завантаження нового документа (перша версія)
+  const handleMainUpload = (e) => {
+    const file = e.target.files[0];
+    if (file && selectedProject) {
+      uploadDocument(file.name, file, selectedProject.project_id);
+    } else if (!selectedProject) {
+      alert("Please select a project first on the Dashboard.");
+    }
+  };
+
+  // Обробник завантаження нової версії до існуючого документа
+  const handleVersionUpload = (e) => {
+    const file = e.target.files[0];
+    if (file && targetDocId) {
+      createNewVersion(targetDocId, file);
+      setTargetDocId(null); // скидаємо вибір
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-12 py-16 space-y-24">
-      <header className="text-center space-y-6 flex flex-col items-center">
-        <h1 className="text-4xl font-bold uppercase tracking-tight">
-          Incidents Tab
-        </h1>
-        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-          Overview of reported incidents related to this project.
-        </p>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="btn-black px-12"
-        >
-          + Report Incident
-        </button>
-      </header>
-
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-black bg-transparent border-none cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-xl font-bold mb-6 uppercase tracking-tight">
-              Report Incident
-            </h2>
-            <form onSubmit={handleReport} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-gray-500">
-                  Incident Name
-                </label>
-                <input
-                  className="input-field"
-                  autoFocus
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="What happened?"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-gray-500">
-                  Short Description
-                </label>
-                <textarea
-                  className="input-field h-24 resize-none"
-                  value={form.desc}
-                  onChange={(e) => setForm({ ...form, desc: e.target.value })}
-                  placeholder="Provide some details..."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-gray-500">
-                  Severity
-                </label>
-                <select
-                  className="input-field"
-                  value={form.severity}
-                  onChange={(e) =>
-                    setForm({ ...form, severity: e.target.value })
-                  }
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Critical">Critical</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="btn-outline px-6"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-black px-6">
-                  Submit Report
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <section className="grid grid-cols-12 gap-8 items-start">
-        <div className="col-span-5">
+    <div className="max-w-5xl mx-auto p-12 space-y-16">
+      {/* Шапка та завантаження нового документа */}
+      <section className="text-center space-y-6">
+        <header className="space-y-2">
           <h2 className="text-3xl font-bold uppercase tracking-tight">
-            Reported Incidents
+            Project Documents
           </h2>
-        </div>
-        <div className="col-span-7 divide-y divide-gray-100">
-          {incidents.map((i) => (
-            <div key={i.id} className="flex items-center justify-between py-6">
-              <div className="flex items-center gap-6">
-                <div className="w-12 h-12 flex items-center justify-center border border-gray-100 rounded">
-                  <AlertTriangle size={24} className="text-gray-400" />
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">
+            Managing versions and statuses
+          </p>
+        </header>
+
+        <button
+          onClick={() => fileInputRef.current.click()}
+          className="btn-black px-12 mx-auto"
+        >
+          Upload New Document
+        </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          onChange={handleMainUpload}
+        />
+        <input
+          type="file"
+          ref={versionInputRef}
+          className="hidden"
+          onChange={handleVersionUpload}
+        />
+      </section>
+
+      {/* Фільтрація документів (FR-12) */}
+      <div className="flex justify-center gap-4">
+        {["All", "Stable", "Draft"].map((filter) => (
+          <button
+            key={filter}
+            onClick={() => setActiveFilter(filter)}
+            className={`text-[10px] font-bold uppercase tracking-widest px-4 py-2 border-b-2 transition-all ${
+              activeFilter === filter
+                ? "border-black text-black"
+                : "border-transparent text-gray-300 hover:text-gray-500"
+            }`}
+          >
+            {filter}
+          </button>
+        ))}
+      </div>
+
+      {/* Список документів та їхніх версій (FR-12) */}
+      <div className="space-y-8">
+        {docs
+          .filter((doc) => {
+            if (activeFilter === "All") return true;
+            // Перевірка, чи має хоча б одна версія документа потрібний статус
+            return doc.versions?.some(
+              (v) => v.status === activeFilter.toUpperCase(),
+            );
+          })
+          .map((doc) => (
+            <div
+              key={doc.document_id}
+              className="border border-gray-100 bg-white shadow-sm overflow-hidden"
+            >
+              {/* Заголовок документа */}
+              <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-tight">
+                    {doc.title}
+                  </h3>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">
+                    ID: {doc.document_id.substring(0, 8)}... • Project ID:{" "}
+                    {doc.project_id?.substring(0, 8)}...
+                  </p>
                 </div>
-                <span
-                  onClick={() => onIncidentClick(i)}
-                  className="text-sm font-bold uppercase cursor-pointer hover:underline"
+                <button
+                  onClick={() => {
+                    setTargetDocId(doc.document_id);
+                    versionInputRef.current.click();
+                  }}
+                  className="text-[9px] font-bold uppercase border border-black px-4 py-2 hover:bg-black hover:text-white transition-all"
                 >
-                  {i.name}
-                </span>
+                  + Add New Version
+                </button>
               </div>
-              <div className="text-right">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-900">
-                  {i.date} — {i.severity}
-                </div>
+
+              {/* Список версій (FR-10, FR-11) */}
+              <div className="divide-y divide-gray-50">
+                {doc.versions && doc.versions.length > 0 ? (
+                  doc.versions
+                    .sort((a, b) => b.version_number - a.version_number) // Нові версії зверху
+                    .map((v) => (
+                      <div
+                        key={v.version_id}
+                        className="p-4 flex justify-between items-center hover:bg-gray-50/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-6">
+                          <div className="flex flex-col items-center justify-center w-12 h-12 border border-gray-100 bg-white rounded-sm shadow-sm">
+                            <span className="text-[10px] font-black italic">
+                              v{v.version_number}
+                            </span>
+                            <FileText size={14} className="text-gray-300" />
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="text-[10px] font-bold text-gray-900 uppercase">
+                              Date: {new Date(v.uploaded_at).toLocaleString()}
+                            </div>
+                            {/* Керування статусом (FR-11) */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                                Status:
+                              </span>
+                              <select
+                                className={`text-[9px] font-extrabold uppercase bg-transparent outline-none cursor-pointer ${
+                                  v.status === "STABLE"
+                                    ? "text-green-600"
+                                    : v.status === "ARCHIVED"
+                                      ? "text-gray-400"
+                                      : "text-blue-500"
+                                }`}
+                                value={v.status}
+                                onChange={(e) =>
+                                  updateVersionStatus(
+                                    v.version_id,
+                                    e.target.value,
+                                  )
+                                }
+                              >
+                                <option value="DRAFT">Draft</option>
+                                <option value="STABLE">Stable</option>
+                                <option value="ARCHIVED">Archived</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Завантаження версії (FR-10) */}
+                        <button
+                          onClick={() => downloadVersion(v.version_id)}
+                          className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all shadow-md"
+                          title="Download this version"
+                        >
+                          <Download size={16} />
+                        </button>
+                      </div>
+                    ))
+                ) : (
+                  <div className="p-8 text-center text-[10px] font-bold text-gray-300 uppercase italic">
+                    No versions available for this document
+                  </div>
+                )}
               </div>
             </div>
           ))}
-          {incidents.length === 0 && (
-            <div className="py-20 text-center text-gray-200 uppercase text-[10px] font-bold tracking-[0.2em]">
-              Інцидентів не зафіксовано
+      </div>
+    </div>
+  );
+}
+
+/* ── Page: Incidents ── */
+function IncidentsPage() {
+  const { incidents, createIncident, updateIncident, resolveIncident } =
+    useContext(AppContext);
+  const [activeInc, setActiveInc] = useState(null);
+  const [modalMode, setModalMode] = useState(null);
+
+  // Стани для FR-14 (Пошук та Фільтрація)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("ALL");
+
+  const handleSave = async () => {
+    if (modalMode === "add") {
+      await createIncident(activeInc);
+    } else if (modalMode === "edit") {
+      await updateIncident(activeInc.incident_id, activeInc);
+    }
+    setModalMode(null);
+    setActiveInc(null);
+  };
+
+  // Логіка фільтрації
+  const filteredIncidents = incidents.filter((i) => {
+    const matchesSearch = i.title
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesPriority =
+      priorityFilter === "ALL" || i.priority === priorityFilter;
+    return matchesSearch && matchesPriority;
+  });
+
+  return (
+    <div className="max-w-5xl mx-auto p-12 py-16 space-y-16">
+      <header className="text-center space-y-6 flex flex-col items-center">
+        <h1 className="text-4xl font-bold uppercase tracking-tight">
+          Incidents Registry
+        </h1>
+
+        {/* Панель пошуку та фільтрації (FR-14) */}
+        <div className="flex gap-4 w-full max-w-2xl">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={16}
+            />
+            <input
+              className="input-field pl-10"
+              placeholder="Search by title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <select
+            className="input-field w-40"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+          >
+            <option value="ALL">All Priorities</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+          <button
+            onClick={() => {
+              setActiveInc({ title: "", priority: "Medium", description: "" });
+              setModalMode("add");
+            }}
+            className="btn-black whitespace-nowrap"
+          >
+            + Report
+          </button>
+        </div>
+      </header>
+
+      <section className="grid grid-cols-12 gap-12 items-start">
+        <div className="col-span-12 divide-y divide-gray-100 border-t">
+          {filteredIncidents.length > 0 ? (
+            filteredIncidents.map((i) => (
+              <div
+                key={i.incident_id}
+                className="flex items-center justify-between py-6 hover:bg-gray-50 px-4 transition-all group"
+              >
+                <div className="flex items-center gap-6">
+                  <div
+                    className={`p-2 border rounded ${i.priority === "Critical" ? "border-red-100 text-red-500" : "border-gray-100 text-gray-300"}`}
+                  >
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <span
+                      onClick={() => {
+                        setActiveInc(i);
+                        setModalMode("edit");
+                      }}
+                      className="text-sm font-bold uppercase cursor-pointer hover:underline block"
+                    >
+                      {i.title}
+                    </span>
+                    <p className="text-[10px] text-gray-400 uppercase">
+                      {new Date(
+                        i.created_at || Date.now(),
+                      ).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-8">
+                  <span
+                    className={`text-[10px] font-black uppercase tracking-widest ${
+                      i.priority === "Critical"
+                        ? "text-red-600"
+                        : i.priority === "High"
+                          ? "text-orange-500"
+                          : "text-gray-400"
+                    }`}
+                  >
+                    {i.priority}
+                  </span>
+                  <button
+                    onClick={() => resolveIncident(i.incident_id)}
+                    className="opacity-0 group-hover:opacity-100 text-[9px] font-bold uppercase text-green-600 border border-green-600 px-3 py-1 rounded-sm hover:bg-green-600 hover:text-white transition-all"
+                  >
+                    Resolve
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-20 text-center text-gray-300 uppercase font-bold text-xs tracking-widest">
+              No incidents found matching filters
             </div>
           )}
         </div>
       </section>
-    </div>
-  );
-}
 
-function IncidentDetailsPage({ incident, onBack }) {
-  const { updateIncidentDetails } = useContext(AppContext);
-  const [form, setForm] = useState({ ...incident });
-
-  const handleSave = () => {
-    updateIncidentDetails(form);
-    onBack();
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto p-12 py-16">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-[10px] font-bold uppercase mb-12 text-gray-400 hover:text-black transition-colors"
+      <Modal
+        isOpen={!!modalMode}
+        onClose={() => setModalMode(null)}
+        title={modalMode === "add" ? "Report Incident" : "Incident Details"}
       >
-        <ChevronLeft size={14} /> Back to incidents
-      </button>
-
-      <div className="space-y-10">
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-gray-400">
-            Incident Name
-          </label>
-          <input
-            className="text-3xl font-bold bg-transparent border-none w-full focus:outline-none uppercase tracking-tight"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-8">
+        <div className="space-y-6 text-left">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
-              <Calendar size={12} /> Creation Date
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Title
             </label>
             <input
-              type="text"
               className="input-field"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
+              value={activeInc?.title || ""}
+              onChange={(e) =>
+                setActiveInc({ ...activeInc, title: e.target.value })
+              }
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2">
-              <AlertCircle size={12} /> Severity
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Priority
             </label>
             <select
               className="input-field"
-              value={form.severity}
-              onChange={(e) => setForm({ ...form, severity: e.target.value })}
+              value={activeInc?.priority || "Medium"}
+              onChange={(e) =>
+                setActiveInc({ ...activeInc, priority: e.target.value })
+              }
             >
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
+              <option value="High">High</option>
               <option value="Critical">Critical</option>
             </select>
           </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-gray-400">
+              Description
+            </label>
+            <textarea
+              className="input-field h-32 resize-none"
+              value={activeInc?.description || ""}
+              onChange={(e) =>
+                setActiveInc({ ...activeInc, description: e.target.value })
+              }
+            />
+          </div>
+          <button
+            onClick={handleSave}
+            className="btn-black w-full py-4 uppercase font-bold tracking-widest"
+          >
+            {modalMode === "add" ? "Report Now" : "Save Changes"}
+          </button>
         </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-gray-400">
-            Description
-          </label>
-          <textarea
-            className="input-field h-32 resize-none"
-            value={form.desc}
-            onChange={(e) => setForm({ ...form, desc: e.target.value })}
-          />
-        </div>
-
-        <button
-          onClick={handleSave}
-          className="btn-black w-full py-4 uppercase font-bold tracking-widest"
-        >
-          <Save size={16} /> Save Changes
-        </button>
-      </div>
+      </Modal>
     </div>
   );
 }
 
-/* ── Main App Component ──────────────────────────────────────────────────── */
+/* ── Main App ── */
+
 export default function App() {
   const [page, setPage] = useState("dashboard");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Стани для всіх сутностей з бекенду
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [docs, setDocs] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+  const [users, setUsers] = useState([]); // Нове: список користувачів
   const [selectedProject, setSelectedProject] = useState(null);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [selectedIncident, setSelectedIncident] = useState(null);
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
-  const [docs, setDocs] = useState(INITIAL_DOCS);
-  const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
 
-  const toggleTask = (id) => {
-    setTasks((ts) =>
-      ts.map((t) => {
-        if (t.id === id) {
-          if (!t.done) return { ...t, done: true, status: "Done" };
-          return { ...t, done: false, status: "To Do" };
-        }
-        return t;
-      }),
-    );
+  const loadAllData = async () => {
+    setIsLoading(true);
+    try {
+      const [p, t, d, i, u] = await Promise.all([
+        fetch(`${API_BASE_URL}/projects`).then((r) => r.json()),
+        fetch(`${API_BASE_URL}/tasks`).then((r) => r.json()),
+        fetch(`${API_BASE_URL}/documents`).then((r) => r.json()),
+        fetch(`${API_BASE_URL}/incidents`).then((r) => r.json()),
+        fetch(`${API_BASE_URL}/users`).then((r) => r.json()), // Додано користувачів
+      ]);
+
+      setProjects(Array.isArray(p) ? p : MOCK_PROJECTS);
+      setTasks(Array.isArray(t) ? t : MOCK_TASKS);
+      setDocs(Array.isArray(d) ? d : MOCK_DOCS);
+      setIncidents(Array.isArray(i) ? i : MOCK_INCIDENTS);
+      setUsers(u);
+    } catch (err) {
+      console.error("Backend connection failed, using MOCK data", err);
+      setProjects(MOCK_PROJECTS);
+      setTasks(MOCK_TASKS);
+      setDocs(MOCK_DOCS);
+      setIncidents(MOCK_INCIDENTS);
+    } finally {
+      setTimeout(() => setIsLoading(false), 800);
+    }
   };
 
-  const addTask = (text, status) => {
-    setTasks((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        text,
-        status,
-        done: status === "Done",
-        desc: "",
-        deadline: "2026-12-31",
-      },
-    ]);
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  const createProject = async (projectData) => {
+    // Перевіряємо, чи завантажилися користувачі з бази
+    if (users.length === 0) {
+      alert("Помилка: Користувачі не завантажені. Спробуйте оновити сторінку.");
+      return;
+    }
+
+    // Беремо user_id першого користувача (адміна)
+    const adminId = users[0].user_id;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: projectData.name,
+          address: projectData.address,
+          initial_budget: parseFloat(projectData.budget), // Число з плаваючою крапкою
+          created_by: adminId, // Реальний UUID
+        }),
+      });
+
+      if (response.ok) {
+        console.log("Проєкт створено!");
+        await loadAllData(); // Тепер ця функція точно визначена
+      }
+    } catch (err) {
+      console.error("Error creating project:", err);
+    }
   };
 
-  const updateTaskDetails = (updatedTask) => {
+  const handleCreateProject = async (projectData) => {
+    // Перевіряємо, чи завантажилися користувачі
+    if (users.length === 0) {
+      console.error("Користувачів не знайдено. Створення проекту неможливе.");
+      return;
+    }
+
+    // Автоматично беремо ID першого користувача з масиву
+    const adminId = users[0].user_id;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: projectData.name,
+          address: projectData.address,
+          initial_budget: parseFloat(projectData.budget),
+          created_by: adminId, // тут реальний UUID з бази
+        }),
+      });
+
+      if (response.ok) {
+        await loadAllData(); // Оновлюємо список проектів на екрані (FR-02: Оновлення реєстру)
+      }
+    } catch (err) {
+      console.error("Помилка створення проекту:", err);
+    }
+  };
+
+  // FR-03: Зміна статусу проєкту
+  const updateProjectStatus = async (projectId, newStatus) => {
+    if (!users[0]) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/projects/${projectId}/status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: newStatus,
+            changed_by: users[0].user_id, // Фіксуємо, хто змінив статус
+          }),
+        },
+      );
+
+      if (response.ok) {
+        console.log(`Статус проєкту змінено на ${newStatus}`);
+        await loadAllData(); // Оновлюємо інтерфейс
+      }
+    } catch (err) {
+      console.error("Error updating project status:", err);
+    }
+  };
+
+  // Додатково: Видалення проєкту (якщо бекенд підтримує DELETE /projects/{id})
+  const deleteProject = async (projectId) => {
+    if (!window.confirm("Ви впевнені, що хочете видалити цей проєкт?")) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setPage("dashboard");
+        await loadAllData();
+      }
+    } catch (err) {
+      console.error("Error deleting project:", err);
+    }
+  };
+
+  // FR-05: Створення нової задачі
+  const createTask = async (taskData) => {
+    if (users.length === 0 || !selectedProject) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: taskData.title,
+          project_id: selectedProject.project_id, // Прив'язка до поточного проєкту
+          created_by: users[0].user_id,
+          description: taskData.description || "",
+          deadline: taskData.deadline || null,
+          status: taskData.status || "TODO",
+        }),
+      });
+      if (response.ok) await loadAllData();
+    } catch (err) {
+      console.error("Error creating task:", err);
+    }
+  };
+
+  // Оновлення існуючої задачі (назва, опис, дедлайн)
+  const updateTaskDetails = async (taskData) => {
+    try {
+      // 1. Оновлюємо текстові поля (PATCH)
+      await fetch(`${API_BASE_URL}/tasks/${taskData.task_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: taskData.title,
+          description: taskData.description,
+          deadline: taskData.deadline,
+        }),
+      });
+
+      // 2. Оновлюємо статус окремим запитом (PUT), як того вимагає бекенд
+      if (users[0]) {
+        await fetch(`${API_BASE_URL}/tasks/${taskData.task_id}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: taskData.status, // Статус із випадаючого списку
+            changed_by: users[0].user_id,
+          }),
+        });
+      }
+
+      await loadAllData(); // Оновлюємо все на екрані
+    } catch (err) {
+      console.error("Error updating task details:", err);
+    }
+  };
+  // -------- Документи ----------------
+  const uploadDocument = async (title, file, projectId) => {
+    const formData = new FormData();
+
+    // Додаємо файл (ключ має бути "file", як у роутері)
+    formData.append("file", file);
+
+    // Додаємо параметри документа (title, project_id, created_by)
+    // Оскільки в бекенді вони йдуть через Depends(), передаємо їх як Query-параметри або частини форми
+    const params = new URLSearchParams({
+      title: title,
+      project_id: projectId,
+      created_by: "UUID-КОРИСТУВАЧА", // Обов'язкове поле за схемою
+      status: "DRAFT", // Початковий статус версії
+    });
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/documents?${params.toString()}`,
+        {
+          method: "POST",
+          body: formData, // Не вказуйте Content-Type, браузер зробить це сам для FormData
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Upload failed");
+      }
+
+      const result = await response.json();
+      console.log("Document uploaded:", result.document_id);
+
+      loadAllData(); // Перезавантажуємо список документів
+    } catch (err) {
+      console.error("Upload error:", err);
+    }
+  };
+
+  // FR-10: Створення нової версії документа (ОНОВЛЕНО під новий ендпоїнт)
+  const createNewVersion = async (documentId, file) => {
+    if (!users[0]) return;
+
+    const formData = new FormData();
+    formData.append("file", file); // Файл іде в Request Body
+
+    // Параметри uploaded_by та status тепер ідуть в URL
+    const params = new URLSearchParams({
+      uploaded_by: users[0].user_id,
+      status: "DRAFT",
+    });
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/documents/${documentId}/versions?${params.toString()}`,
+        {
+          method: "POST",
+          body: formData, // Браузер сам встановить потрібний boundary для multipart/form-data
+        },
+      );
+
+      if (response.ok) {
+        console.log("Нову версію успішно завантажено");
+        await loadAllData();
+      } else {
+        const error = await response.json();
+        console.error("Помилка завантаження версії:", error.detail);
+      }
+    } catch (err) {
+      console.error("Network error during version upload:", err);
+    }
+  };
+
+  // FR-11: Оновлення статусу версії
+  const updateVersionStatus = async (versionId, newStatus) => {
+    try {
+      // Бекенд очікує DocumentStatus (Enum string) прямо в тілі
+      const response = await fetch(
+        `${API_BASE_URL}/documents/versions/${versionId}/status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        },
+      );
+      if (response.ok) await loadAllData();
+    } catch (err) {
+      console.error("Error updating version status:", err);
+    }
+  };
+
+  // -------------- Задачі (чекбокси)
+  // Виправлена логіка чекбоксів (працює з DONE великими літерами)
+  const toggleTask = async (id) => {
+    if (users.length === 0) return;
+    const adminId = users[0].user_id;
+
+    // 1. Знаходимо поточну задачу, щоб визначити її наступний статус
+    const taskToUpdate = tasks.find((t) => t.task_id === id);
+    if (!taskToUpdate) return;
+
+    const newStatus = taskToUpdate.status === "DONE" ? "TODO" : "DONE";
+
+    // 2. Оптимістичне оновлення інтерфейсу (миттєво змінюємо в UI)
     setTasks((prev) =>
-      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+      prev.map((t) => (t.task_id === id ? { ...t, status: newStatus } : t)),
     );
+
+    try {
+      // 3. Реальний PUT запит до бекенду
+      const response = await fetch(`${API_BASE_URL}/tasks/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: newStatus,
+          changed_by: adminId, // Передаємо реальний UUID користувача
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update task status");
+      }
+
+      console.log(`Статус задачі ${id} змінено на ${newStatus}`);
+
+      // 4. Оновлюємо дані, щоб отримати актуальну історію змін з сервера (опціонально)
+      // await loadAllData();
+    } catch (err) {
+      console.error("Помилка при оновленні статусу:", err);
+      // Відкочуємо стан UI у разі помилки
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.task_id === id ? { ...t, status: taskToUpdate.status } : t,
+        ),
+      );
+      alert("Не вдалося зберегти зміни статусу в базі.");
+    }
   };
 
-  const addDoc = (doc) => {
-    setDocs((prev) => [doc, ...prev]);
+  // FR-13: Створення інциденту в базі
+  const createIncident = async (data) => {
+    if (!selectedProject || !users[0]) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/incidents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          project_id: selectedProject.project_id, // Прив'язка до проекту
+          created_by: users[0].user_id,
+        }),
+      });
+      if (response.ok) await loadAllData();
+    } catch (err) {
+      console.error("Error creating incident:", err);
+    }
   };
 
-  const addIncident = (name, desc, severity) => {
-    const today = new Date();
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const dateStr = `${months[today.getMonth()]} ${today.getDate()}`;
-
-    setIncidents((prev) => [
-      { id: Date.now(), name, desc, severity, date: dateStr },
-      ...prev,
-    ]);
+  // FR-15: Оновлення інциденту
+  const updateIncident = async (id, data) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/incidents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+        }),
+      });
+      if (response.ok) await loadAllData();
+    } catch (err) {
+      console.error("Error updating incident:", err);
+    }
   };
 
-  const updateIncidentDetails = (updatedIncident) => {
-    setIncidents((prev) =>
-      prev.map((i) => (i.id === updatedIncident.id ? updatedIncident : i)),
-    );
+  // FR-15: Видалення (вирішення) інциденту
+  const resolveIncident = async (id) => {
+    if (!window.confirm("Позначити цей інцидент як вирішений та видалити?"))
+      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/incidents/${id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) await loadAllData();
+    } catch (err) {
+      console.error("Error resolving incident:", err);
+    }
+  };
+
+  // ---------- contextValue -----------
+  const contextValue = {
+    projects,
+    tasks,
+    docs,
+    incidents,
+    users,
+    createProject,
+    updateProjectStatus,
+    deleteProject,
+    uploadDocument,
+    createNewVersion,
+    updateVersionStatus,
+    toggleTask,
+    createTask,
+    updateTaskDetails,
+    createIncident,
+    updateIncident,
+    resolveIncident,
+
+    // Створення документа (Multipart/form-data згідно з documents.py)
+    addDoc: async (docData, file) => {
+      // Бекенд очікує проект_id та created_by (UUID)
+      console.log("Uploading to backend...", docData);
+      setDocs((prev) => [
+        {
+          document_id: Date.now().toString(),
+          ...docData,
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+    },
+
+    // Створення інциденту (згідно з incidents (1).py)
+    addIncident: async (title, desc, priority) => {
+      // POST запит на /incidents
+      setIncidents((prev) => [
+        {
+          incident_id: Date.now().toString(),
+          title,
+          description: desc,
+          priority,
+          date: "Now",
+        },
+        ...prev,
+      ]);
+    },
   };
 
   return (
-    <AppContext.Provider
-      value={{
-        tasks,
-        toggleTask,
-        addTask,
-        updateTaskDetails,
-        docs,
-        addDoc,
-        incidents,
-        addIncident,
-        updateIncidentDetails,
-      }}
-    >
-      <style dangerouslySetInnerHTML={{ __html: css }} />
-      <AppShell page={page} setPage={setPage}>
+    <AppContext.Provider value={contextValue}>
+      <style dangerouslySetInnerHTML={{ __html: cssStyles }} />
+      <AppShell page={page} setPage={setPage} isLoading={isLoading}>
         {page === "dashboard" && (
           <DashboardPage
             onProjectClick={(p) => {
@@ -1154,108 +1470,90 @@ export default function App() {
             setPage={setPage}
           />
         )}
-
         {page === "projects" && (
-          <div className="max-w-4xl mx-auto p-16 space-y-12">
-            <h1 className="text-4xl font-bold text-center uppercase tracking-tight">
+          <div className="max-w-4xl mx-auto p-16 space-y-8">
+            <h1 className="text-4xl font-bold text-center uppercase">
               Project Registry
             </h1>
-            <div className="divide-y divide-gray-100 border-t border-gray-100">
-              {INITIAL_PROJECTS.map((p) => (
-                <div
-                  key={p.id}
-                  onClick={() => {
-                    setSelectedProject(p);
-                    setPage("project_details");
-                  }}
-                  className="flex items-center justify-between py-6 px-4 hover:bg-gray-50 cursor-pointer transition-colors group"
-                >
-                  <div className="flex items-center gap-6">
-                    <span className="text-3xl grayscale group-hover:grayscale-0 transition-all">
-                      {p.icon}
-                    </span>
-                    <span className="text-sm font-bold uppercase">
-                      {p.name}
-                    </span>
-                  </div>
-                  <ChevronRight size={18} className="text-gray-300" />
+            {projects.map((p) => (
+              <div
+                key={p.project_id}
+                onClick={() => {
+                  setSelectedProject(p);
+                  setPage("project_details");
+                }}
+                className="flex justify-between py-6 border-b cursor-pointer hover:bg-gray-50 px-4 transition-colors"
+              >
+                <div className="flex items-center gap-6">
+                  <span className="text-3xl">{p.icon || "🏗️"}</span>
+                  <span className="text-sm font-bold uppercase">{p.name}</span>
                 </div>
-              ))}
-            </div>
+                <ChevronRight size={18} className="text-gray-300" />
+              </div>
+            ))}
           </div>
         )}
-
         {page === "project_details" && selectedProject && (
           <div className="space-y-0">
             <div className="bg-gray-50 p-16 text-center border-b border-gray-100">
-              <button
-                onClick={() => setPage("projects")}
-                className="text-[10px] font-bold uppercase mb-4 text-gray-400 hover:text-black"
-              >
-                ← Back to Registry
-              </button>
-              <div className="text-5xl mb-4">{selectedProject.icon}</div>
-              <h1 className="text-3xl font-bold uppercase tracking-tight">
+              <div className="flex justify-between max-w-5xl mx-auto mb-8">
+                <button
+                  onClick={() => setPage("projects")}
+                  className="text-[10px] font-bold uppercase text-gray-400 hover:text-black"
+                >
+                  ← Back to Registry
+                </button>
+
+                {/* Кнопки керування (FR-03, FR-04) */}
+                <div className="flex gap-4">
+                  <select
+                    className="text-[10px] font-bold uppercase border-b border-black bg-transparent outline-none cursor-pointer"
+                    value={selectedProject.status}
+                    onChange={(e) =>
+                      updateProjectStatus(
+                        selectedProject.project_id,
+                        e.target.value,
+                      )
+                    }
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="DENIED">Denied</option>
+                  </select>
+
+                  <button
+                    onClick={() => deleteProject(selectedProject.project_id)}
+                    className="text-[10px] font-bold uppercase text-red-400 hover:text-red-600"
+                  >
+                    Delete Project
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-5xl mb-4">
+                {selectedProject.icon || "🏗️"}
+              </div>
+              <h1 className="text-3xl font-bold uppercase">
                 {selectedProject.name}
               </h1>
-              <p className="text-[10px] font-bold uppercase text-gray-400 mt-2 tracking-[0.2em]">
-                {selectedProject.loc} — {selectedProject.status}
+              <p className="text-[10px] font-bold uppercase text-gray-400 mt-2 tracking-widest">
+                {selectedProject.address} —{" "}
+                <span className="text-black">{selectedProject.status}</span>
               </p>
             </div>
-            <TasksPage
-              onTaskClick={(t) => {
-                setSelectedTask(t);
-                setPage("task_details");
-              }}
-            />
+            <TasksPage />
           </div>
         )}
-
-        {page === "tasks" && (
-          <TasksPage
-            onTaskClick={(t) => {
-              setSelectedTask(t);
-              setPage("task_details");
-            }}
-          />
-        )}
-
-        {page === "task_details" && selectedTask && (
-          <TaskDetailsPage
-            task={selectedTask}
-            onBack={() =>
-              setPage(selectedProject ? "project_details" : "tasks")
-            }
-          />
-        )}
-
+        {page === "tasks" && <TasksPage />}
         {page === "documents" && <DocumentsPage />}
-
-        {page === "incidents" && (
-          <IncidentsPage
-            onIncidentClick={(i) => {
-              setSelectedIncident(i);
-              setPage("incident_details");
-            }}
-          />
-        )}
-
-        {page === "incident_details" && selectedIncident && (
-          <IncidentDetailsPage
-            incident={selectedIncident}
-            onBack={() => setPage("incidents")}
-          />
-        )}
-
+        {page === "incidents" && <IncidentsPage />}
         {["analytics", "settings"].includes(page) && (
-          <div className="flex flex-col items-center justify-center h-[70vh] text-gray-100">
-            {page === "analytics" ? (
-              <BarChart3 size={120} strokeWidth={1} />
-            ) : (
-              <Settings size={120} strokeWidth={1} />
-            )}
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] mt-6 text-gray-300">
-              Section {page}
+          <div className="flex flex-col items-center justify-center h-[70vh] text-gray-200">
+            <BarChart3 size={80} />
+            <p className="text-[10px] font-bold uppercase mt-6 tracking-[0.4em]">
+              Module {page} in development
             </p>
           </div>
         )}
