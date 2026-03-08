@@ -1,4 +1,16 @@
 services:
+  backend:
+    build: ./backend
+    container_name: archon_backend
+    depends_on:
+      - db
+    environment:
+      ARCHON_DB_URL: postgresql+asyncpg://admin:password@db:5432/archondb
+    ports:
+      - "8000:8000"
+    volumes:
+      - archon_files:/var/lib/archon/files
+
   db:
     image: postgres:18
     container_name: archon_database
@@ -14,6 +26,7 @@ services:
   
   pgadmin:
     image: dpage/pgadmin4
+    container_name: archon_pgadmin4
     depends_on:
       - db
     environment:
@@ -25,5 +38,6 @@ services:
       - pgadmin_data:/var/lib/pgadmin
 
 volumes:
+  archon_files:
   archon_data:
   pgadmin_data:
