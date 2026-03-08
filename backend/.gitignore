@@ -1,3 +1,6 @@
+# Файли документів, створені при локальному запуску
+uploads/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

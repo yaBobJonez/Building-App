@@ -6,6 +6,7 @@ services:
       - db
     environment:
       ARCHON_DB_URL: postgresql+asyncpg://admin:password@db:5432/archondb
+      ARCHON_DOCUMENTS_DIR: /var/lib/archon/files
     ports:
       - "8000:8000"
     volumes:
