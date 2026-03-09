@@ -251,6 +251,7 @@ async def test_TC08_task_status_changes():
         assert r.json()["status"] == "DONE"
 
 
+
 @pytest.mark.asyncio
 async def test_TC09_document_registry_fields():
     import io
@@ -276,6 +277,7 @@ async def test_TC09_document_registry_fields():
         assert docs[0]["created_at"]  is not None
 
 
+
 @pytest.mark.asyncio
 async def test_TC10_upload_new_document_version():
     import io
@@ -291,12 +293,9 @@ async def test_TC10_upload_new_document_version():
         assert r.status_code == 201, r.text
         document_id = r.json()["document_id"]
 
-        import json
-        r = await client.post(f"/documents/{document_id}/versions",
-            files={
-                "file": ("plan_v2.pdf", io.BytesIO(b"v2"), "application/pdf"),
-                "data": (None, json.dumps({"uploaded_by": user_id}), "application/json"),
-            }
+        params2 = f"?uploaded_by={user_id}"
+        r = await client.post(f"/documents/{document_id}/versions{params2}",
+            files={"file": ("plan_v2.pdf", io.BytesIO(b"v2"), "application/pdf")}
         )
         assert r.status_code == 200, r.text
         assert r.json()["version_number"] == 2
@@ -317,7 +316,6 @@ async def test_TC11_stable_version_uniqueness():
         user_id = await create_user(client)
         project_id = await create_project(client, user_id)
 
-
         params = f"?title=Проєктна документація&project_id={project_id}&created_by={user_id}&status=STABLE"
         r = await client.post(f"/documents{params}",
             files={"file": ("plan_v1.pdf", io.BytesIO(b"v1 content"), "application/pdf")}
@@ -325,12 +323,9 @@ async def test_TC11_stable_version_uniqueness():
         assert r.status_code == 201, r.text
         document_id = r.json()["document_id"]
 
-        import json
-        r = await client.post(f"/documents/{document_id}/versions",
-            files={
-                "file": ("plan_v2.pdf", io.BytesIO(b"v2 content"), "application/pdf"),
-                "data": (None, json.dumps({"uploaded_by": user_id, "status": "STABLE"}), "application/json"),
-            }
+        params2 = f"?uploaded_by={user_id}&status=STABLE"
+        r = await client.post(f"/documents/{document_id}/versions{params2}",
+            files={"file": ("plan_v2.pdf", io.BytesIO(b"v2 content"), "application/pdf")}
         )
         assert r.status_code == 200, r.text
 
@@ -419,3 +414,5 @@ async def test_TC14_resolve_incident():
 
         r = await client.get(f"/incidents/{incident_id}")
         assert r.status_code == 404
+
+

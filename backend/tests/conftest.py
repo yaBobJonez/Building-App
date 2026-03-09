@@ -1,11 +1,6 @@
-"""
-conftest.py — pytest читає цей файл автоматично перед усіма тестами.
-Тут: налаштування sys.path + всі хелпери як звичайні функції.
-"""
 import sys
 import os
 
-# ── Додаємо backend/ до sys.path щоб знайти models, routers, schemas ─────────
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from unittest.mock import AsyncMock, MagicMock
