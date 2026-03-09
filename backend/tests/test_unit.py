@@ -172,6 +172,7 @@ async def test_TC07_get_task_details_returns_full_info():
     assert result.deadline    == date(2025, 9, 30)
     assert result.status      == TaskStatus.IN_PROGRESS
 
+
 @pytest.mark.asyncio
 async def test_TC08_status_changes_todo_to_inprogress():
     db = make_db()
@@ -267,6 +268,7 @@ async def test_TC10_upload_new_version_creates_version_2():
 
     assert result.version_number == 2
     db.commit.assert_awaited_once()
+
 
 @pytest.mark.asyncio
 async def test_TC10_previous_version_remains_in_history():
