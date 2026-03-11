@@ -1,4 +1,12 @@
 services:
+  frontend:
+    build: ./frontend
+    container_name: archon_frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
   backend:
     build: ./backend
     container_name: archon_backend
