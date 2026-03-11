@@ -462,19 +462,22 @@ function TasksPage({ filterProjectId }) {
     return matchesProject && matchesStatus;
   });
 
-  const handleSave = async () => {
-    if (modalMode === "add") {
-      // При створенні додаємо ID проєкту, якщо ми на сторінці проєкту
-      const dataToSave = filterProjectId
-        ? { ...activeInc, project_id: filterProjectId }
-        : activeInc;
-      await createIncident(dataToSave);
-    } else if (modalMode === "edit") {
-      // Важливо: переконайтеся, що бекенд очікує саме incident_id
-      await updateIncident(activeInc.incident_id, activeInc);
+  const handleSave = async (e) => {
+    if (e) {
+      e.preventDefault(); // Запобігаємо перезавантаженню сторінки
+      e.stopPropagation(); // Зупиняємо спливання події
     }
+    if (!activeTask?.title) return alert("Title is required");
+    if (modalMode === "add") {
+      // Викликаємо функцію створення задачі
+      await createTask(activeTask);
+    } else if (modalMode === "edit") {
+      // Викликаємо функцію оновлення
+      await updateTaskDetails(activeTask);
+    }
+    // Закриваємо модалку ТІЛЬКИ після успішного виклику
     setModalMode(null);
-    setActiveInc(null);
+    setActiveTask(null);
   };
 
   const taskStatuses = ["ALL", "TODO", "IN_PROGRESS", "DONE"];
@@ -483,7 +486,7 @@ function TasksPage({ filterProjectId }) {
     <div className="max-w-4xl mx-auto p-12 py-16">
       <header className="text-center space-y-4 mb-20">
         <h1 className="text-3xl font-bold uppercase tracking-tight">
-          Today's Tasks
+          {filterProjectId ? "Project Tasks" : "All Tasks Registry"}
         </h1>
         <div className="flex justify-center gap-3 relative">
           {/* Кнопка фільтрації з випадаючим списком */}
@@ -513,15 +516,23 @@ function TasksPage({ filterProjectId }) {
             )}
           </div>
 
-          <button
-            onClick={() => {
-              setActiveTask({ title: "", status: "TODO" });
-              setModalMode("add");
-            }}
-            className="btn-black"
-          >
-            + Add New Task
-          </button>
+          {/* Кнопка відображається ТІЛЬКИ якщо є filterProjectId */}
+          {filterProjectId && (
+            <button
+              onClick={() => {
+                setActiveTask({
+                  title: "",
+                  status: "TODO",
+                  description: "",
+                  deadline: "",
+                });
+                setModalMode("add");
+              }}
+              className="btn-black"
+            >
+              + Add New Task
+            </button>
+          )}
         </div>
       </header>
 
@@ -643,6 +654,7 @@ function DocumentsPage({ filterProjectId }) {
     updateVersionStatus,
     downloadVersion,
     selectedProject,
+    users,
   } = useContext(AppContext);
 
   const fileInputRef = useRef(null);
@@ -677,11 +689,25 @@ function DocumentsPage({ filterProjectId }) {
   // Обробник завантаження нової версії до існуючого документа
   const handleVersionUpload = (e) => {
     const file = e.target.files[0];
+    // Перевіряємо, чи є файл і чи обрано конкретний документ
     if (file && targetDocId) {
       createNewVersion(targetDocId, file);
-      setTargetDocId(null); // скидаємо вибір
+      e.target.value = ""; // Скидаємо інпут для повторного використання
     }
   };
+  /*const handleVersionUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file && targetDocId) {
+      try {
+        await createNewVersion(targetDocId, file);
+        // Очищуємо інпут, щоб можна було вибрати той самий файл двічі
+        e.target.value = "";
+        setTargetDocId(null);
+      } catch (err) {
+        console.error("Version upload failed", err);
+      }
+    }
+  };*/
 
   return (
     <div className="max-w-5xl mx-auto p-12 space-y-16">
@@ -755,10 +781,14 @@ function DocumentsPage({ filterProjectId }) {
                     {doc.title}
                   </h3>
                   <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">
-                    ID: {doc.document_id.substring(0, 8)}... • Project ID:{" "}
-                    {doc.project_id?.substring(0, 8)}...
+                    {/* Знаходимо автора за ID у масиві користувачів */}
+                    Author:{" "}
+                    {users.find((u) => u.user_id === doc.created_by)
+                      ?.full_name || "Unknown"}{" "}
+                    • Versions: {doc.versions?.length || 0}
                   </p>
                 </div>
+                {/* Кнопка додавання версії */}
                 <button
                   onClick={() => {
                     setTargetDocId(doc.document_id);
@@ -1086,11 +1116,22 @@ export default function App() {
         fetch(`${API_BASE_URL}/users`).then((r) => r.json()), // Додано користувачів
       ]);
 
-      setProjects(Array.isArray(p) ? p : MOCK_PROJECTS);
+      // Валідація та встановлення даних (зберігаємо моки як fallback)
+      const validatedProjects = Array.isArray(p) ? p : MOCK_PROJECTS;
+      setProjects(validatedProjects);
       setTasks(Array.isArray(t) ? t : MOCK_TASKS);
       setDocs(Array.isArray(d) ? d : MOCK_DOCS);
       setIncidents(Array.isArray(i) ? i : MOCK_INCIDENTS);
-      setUsers(u);
+      setUsers(Array.isArray(u) ? u : []);
+      // ФІКС: Оновлюємо selectedProject новими даними з бази, щоб не втратити стан
+      if (selectedProject) {
+        const current = validatedProjects.find(
+          (proj) => proj.project_id === selectedProject.project_id,
+        );
+        if (current) {
+          setSelectedProject(current); // Оновлюємо об'єкт проєкту актуальними даними
+        }
+      }
     } catch (err) {
       console.error("Backend connection failed, using MOCK data", err);
       setProjects(MOCK_PROJECTS);
@@ -1210,23 +1251,38 @@ export default function App() {
 
   // FR-05: Створення нової задачі
   const createTask = async (taskData) => {
-    if (users.length === 0 || !selectedProject) return;
+    // selectedProject має бути встановлений при переході на сторінку проєкту
+    if (!selectedProject || !users[0]) return;
+
+    // Перевіряємо дату: якщо порожня або undefined — ставимо null
+    const cleanDeadline =
+      taskData.deadline && taskData.deadline.trim() !== ""
+        ? taskData.deadline
+        : null;
+
     try {
       const response = await fetch(`${API_BASE_URL}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: taskData.title,
-          project_id: selectedProject.project_id, // Прив'язка до поточного проєкту
-          created_by: users[0].user_id,
+          project_id: selectedProject.project_id, // UUID обраного проєкту
+          created_by: users[0].user_id, // UUID адміністратора з бази
           description: taskData.description || "",
-          deadline: taskData.deadline || null,
+          // Якщо дедлайн не вказано, передаємо null (бекенд це дозволяє) (дата має бути YYYY-MM-DD)
+          deadline: cleanDeadline, // Тепер тут або дата, або null
           status: taskData.status || "TODO",
         }),
       });
-      if (response.ok) await loadAllData();
+      if (response.ok) {
+        await loadAllData(); // Оновлюємо список задач (FR-05)
+      } else {
+        const errorData = await response.json();
+        console.error("Backend validation error:", errorData.detail);
+        alert("Error: " + JSON.stringify(errorData.detail));
+      }
     } catch (err) {
-      console.error("Error creating task:", err);
+      console.error("Network error during task creation:", err);
     }
   };
 
@@ -1262,40 +1318,76 @@ export default function App() {
     }
   };
   // -------- Документи ----------------
-  const uploadDocument = async (title, file, projectId) => {
-    if (!users[0]) return; // Перевірка наявності користувача
+  const createNewVersion = async (documentId, file) => {
+    if (!users[0]) return;
 
     const formData = new FormData();
 
-    // Додаємо файл (ключ має бути "file", як у роутері)
+    // 1. Додаємо файл (ключ "file" згідно з routers/documents.py)
     formData.append("file", file);
 
-    // Додаємо параметри документа (title, project_id, created_by)
-    // Оскільки в бекенді вони йдуть через Depends(), передаємо їх як Query-параметри або частини форми
-    const params = new URLSearchParams({
-      title: title,
-      project_id: projectId,
-      created_by: users[0].user_id, // реальний ID з бази
-      status: "DRAFT", // Початковий статус версії
-    });
+    // 2. Додаємо поля моделі DocumentVersionCreate ОКРЕМО
+    // НЕ використовуйте JSON.stringify і не створюйте ключ "data"
+    formData.append("uploaded_by", users[0].user_id);
+    formData.append("status", "DRAFT");
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/documents?${params.toString()}`,
+        `${API_BASE_URL}/documents/${documentId}/versions`,
         {
           method: "POST",
-          body: formData, // Не вказую Content-Type, браузер зробить це сам для FormData
+          // Content-Type НЕ ставимо, браузер сам вибере multipart/form-data
+          body: formData,
         },
       );
 
-      if (response.ok) await loadAllData();
+      if (response.ok) {
+        console.log("Версія успішно створена");
+        await loadAllData();
+      } else {
+        const errorData = await response.json();
+        console.error("Backend error details:", errorData.detail);
+        alert("Validation Error: " + JSON.stringify(errorData.detail));
+      }
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("Network error during version upload:", err);
     }
   };
 
-  // FR-10: Створення нової версії документа (ОНОВЛЕНО під новий ендпоїнт)
-  const createNewVersion = async (documentId, file) => {
+  const uploadDocument = async (title, file, projectId) => {
+    if (!users[0]) return;
+
+    const formData = new FormData();
+
+    // 1. Додаємо файл (ключ "file" має збігатися з аргументом у роутері)
+    formData.append("file", file);
+
+    // 2. Додаємо поля моделі DocumentCreate ОКРЕМО
+    // Важливо: НЕ використовуйте JSON.stringify і не створюйте ключ "data"
+    formData.append("title", title);
+    formData.append("project_id", projectId);
+    formData.append("created_by", users[0].user_id);
+    formData.append("status", "DRAFT");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/documents`, {
+        method: "POST",
+        // Content-Type НЕ вказуємо, браузер сам встановити multipart/form-data
+        body: formData,
+      });
+
+      if (response.ok) {
+        await loadAllData();
+      } else {
+        const errorData = await response.json();
+        console.error("Помилка валідації на бекенді:", errorData.detail);
+        alert("Validation Error: " + JSON.stringify(errorData.detail));
+      }
+    } catch (err) {
+      console.error("Network error during document upload:", err);
+    }
+  };
+  /*const createNewVersion = async (documentId, file) => {
     if (!users[0]) return;
 
     const formData = new FormData();
@@ -1326,12 +1418,13 @@ export default function App() {
     } catch (err) {
       console.error("Network error during version upload:", err);
     }
-  };
+  };*/
 
   // FR-11: Оновлення статусу версії
   const updateVersionStatus = async (versionId, newStatus) => {
     try {
-      // Бекенд очікує DocumentStatus (Enum string) прямо в тілі
+      // Якщо встановлюємо STABLE, бекенд сам має скинути інші версії,
+      // але ми робимо запит згідно з маршрутом
       const response = await fetch(
         `${API_BASE_URL}/documents/versions/${versionId}/status`,
         {
@@ -1344,6 +1437,14 @@ export default function App() {
     } catch (err) {
       console.error("Error updating version status:", err);
     }
+  };
+
+  const downloadVersion = async (versionId) => {
+    // Відкриваємо пряме посилання на завантаження з бекенду/MinIO
+    window.open(
+      `${API_BASE_URL}/documents/versions/${versionId}/download`,
+      "_blank",
+    );
   };
 
   // -------------- Задачі (чекбокси)
@@ -1374,23 +1475,11 @@ export default function App() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to update task status");
+      if (response.ok) {
+        await loadAllData(); // Гарантоване оновлення з бази
       }
-
-      console.log(`Статус задачі ${id} змінено на ${newStatus}`);
-
-      // 4. Оновлюємо дані, щоб отримати актуальну історію змін з сервера (опціонально)
-      // await loadAllData();
     } catch (err) {
       console.error("Помилка при оновленні статусу:", err);
-      // Відкочуємо стан UI у разі помилки
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.task_id === id ? { ...t, status: taskToUpdate.status } : t,
-        ),
-      );
-      alert("Не вдалося зберегти зміни статусу в базі.");
     }
   };
 
@@ -1496,21 +1585,6 @@ export default function App() {
           document_id: Date.now().toString(),
           ...docData,
           created_at: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-    },*/
-
-    // Створення інциденту (згідно з incidents (1).py)
-    /*addIncident: async (title, desc, priority) => {
-      // POST запит на /incidents
-      setIncidents((prev) => [
-        {
-          incident_id: Date.now().toString(),
-          title,
-          description: desc,
-          priority,
-          date: "Now",
         },
         ...prev,
       ]);
