@@ -443,7 +443,7 @@ function DashboardPage({ onProjectClick, setPage }) {
 }
 
 /* ── Tasks Page ── */
-function TasksPage() {
+function TasksPage({ filterProjectId }) {
   const { tasks, toggleTask, createTask, updateTaskDetails } =
     useContext(AppContext);
   const [modalMode, setModalMode] = useState(null);
@@ -452,21 +452,30 @@ function TasksPage() {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  // Фільтруємо спочатку за ID проєкту (якщо він переданий), потім за статусом
+  const displayedTasks = tasks.filter((t) => {
+    const matchesProject = filterProjectId
+      ? t.project_id === filterProjectId
+      : true;
+    const matchesStatus =
+      statusFilter === "ALL" ? true : t.status === statusFilter;
+    return matchesProject && matchesStatus;
+  });
+
+  const handleSave = async () => {
     if (modalMode === "add") {
-      await createTask(activeTask); // FR-05
+      // При створенні додаємо ID проєкту, якщо ми на сторінці проєкту
+      const dataToSave = filterProjectId
+        ? { ...activeInc, project_id: filterProjectId }
+        : activeInc;
+      await createIncident(dataToSave);
     } else if (modalMode === "edit") {
-      await updateTaskDetails(activeTask); // Оновлення
+      // Важливо: переконайтеся, що бекенд очікує саме incident_id
+      await updateIncident(activeInc.incident_id, activeInc);
     }
     setModalMode(null);
-    setActiveTask(null);
+    setActiveInc(null);
   };
-
-  const displayedTasks =
-    statusFilter === "ALL"
-      ? tasks
-      : tasks.filter((t) => t.status === statusFilter);
 
   const taskStatuses = ["ALL", "TODO", "IN_PROGRESS", "DONE"];
 
@@ -626,7 +635,7 @@ function TasksPage() {
 }
 
 /* ── Documents Page ── */
-function DocumentsPage() {
+function DocumentsPage({ filterProjectId }) {
   const {
     docs,
     uploadDocument,
@@ -641,12 +650,26 @@ function DocumentsPage() {
   const [targetDocId, setTargetDocId] = useState(null);
   const [activeFilter, setActiveFilter] = useState("All");
 
+  // Фільтрація документів за проєктом та статусом
+  const displayedDocs = docs.filter((doc) => {
+    const matchesProject = filterProjectId
+      ? doc.project_id === filterProjectId
+      : true;
+    const matchesFilter =
+      activeFilter === "All" ||
+      doc.versions?.some((v) => v.status === activeFilter.toUpperCase());
+    return matchesProject && matchesFilter;
+  });
+
   // Обробник завантаження нового документа (перша версія)
   const handleMainUpload = (e) => {
     const file = e.target.files[0];
-    if (file && selectedProject) {
-      uploadDocument(file.name, file, selectedProject.project_id);
-    } else if (!selectedProject) {
+    // Використовуємо filterProjectId (зі сторінки проєкту) або selectedProject (з контексту)
+    const activeProjectId = filterProjectId || selectedProject?.project_id;
+
+    if (file && activeProjectId) {
+      uploadDocument(file.name, file, activeProjectId);
+    } else {
       alert("Please select a project first on the Dashboard.");
     }
   };
@@ -712,7 +735,7 @@ function DocumentsPage() {
 
       {/* Список документів та їхніх версій (FR-12) */}
       <div className="space-y-8">
-        {docs
+        {displayedDocs
           .filter((doc) => {
             if (activeFilter === "All") return true;
             // Перевірка, чи має хоча б одна версія документа потрібний статус
@@ -822,9 +845,14 @@ function DocumentsPage() {
 }
 
 /* ── Page: Incidents ── */
-function IncidentsPage() {
-  const { incidents, createIncident, updateIncident, resolveIncident } =
-    useContext(AppContext);
+function IncidentsPage({ filterProjectId }) {
+  const {
+    incidents,
+    createIncident,
+    updateIncident,
+    resolveIncident,
+    selectedProject,
+  } = useContext(AppContext);
   const [activeInc, setActiveInc] = useState(null);
   const [modalMode, setModalMode] = useState(null);
 
@@ -833,10 +861,20 @@ function IncidentsPage() {
   const [priorityFilter, setPriorityFilter] = useState("ALL");
 
   const handleSave = async () => {
+    if (!activeInc.title) return alert("Title is required");
+
     if (modalMode === "add") {
-      await createIncident(activeInc);
+      const dataToSave = filterProjectId
+        ? { ...activeInc, project_id: filterProjectId }
+        : activeInc;
+      await createIncident(dataToSave);
     } else if (modalMode === "edit") {
-      await updateIncident(activeInc.incident_id, activeInc);
+      // Використовуємо incident_id для PATCH запиту до бекенду
+      await updateIncident(activeInc.incident_id, {
+        title: activeInc.title,
+        description: activeInc.description,
+        priority: activeInc.priority,
+      });
     }
     setModalMode(null);
     setActiveInc(null);
@@ -844,12 +882,15 @@ function IncidentsPage() {
 
   // Логіка фільтрації
   const filteredIncidents = incidents.filter((i) => {
+    const matchesProject = filterProjectId
+      ? i.project_id === filterProjectId
+      : true;
     const matchesSearch = i.title
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesPriority =
       priorityFilter === "ALL" || i.priority === priorityFilter;
-    return matchesSearch && matchesPriority;
+    return matchesProject && matchesSearch && matchesPriority;
   });
 
   return (
@@ -860,15 +901,17 @@ function IncidentsPage() {
         </h1>
 
         {/* Панель пошуку та фільтрації (FR-14) */}
-        <div className="flex gap-4 w-full max-w-2xl">
-          <div className="relative flex-1">
+        <div className="flex gap-4 w-full justify-center">
+          {/* ВИПРАВЛЕНО: збільшено pl-12, щоб текст не наїжджав на іконку */}
+          <div className="relative w-64">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={16}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+              size={14}
             />
             <input
-              className="input-field pl-10"
-              placeholder="Search by title..."
+              className="input-field"
+              style={{ paddingLeft: "36px" }}
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -879,10 +922,10 @@ function IncidentsPage() {
             onChange={(e) => setPriorityFilter(e.target.value)}
           >
             <option value="ALL">All Priorities</option>
-            <option value="Low">Low</option>
-            <option value="Medium">Medium</option>
-            <option value="High">High</option>
-            <option value="Critical">Critical</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
           </select>
           <button
             onClick={() => {
@@ -911,9 +954,10 @@ function IncidentsPage() {
                     <AlertTriangle size={20} />
                   </div>
                   <div>
+                    {/* ВИПРАВЛЕНО:setActiveInc({ ...i }) гарантує передачу всіх полів, включаючи пріоритет */}
                     <span
                       onClick={() => {
-                        setActiveInc(i);
+                        setActiveInc({ ...i });
                         setModalMode("edit");
                       }}
                       className="text-sm font-bold uppercase cursor-pointer hover:underline block"
@@ -978,17 +1022,19 @@ function IncidentsPage() {
             <label className="text-[10px] font-bold uppercase text-gray-400">
               Priority
             </label>
+            {/* ВИПРАВЛЕНО: value тепер чітко прив'язаний до стану */}
             <select
               className="input-field"
-              value={activeInc?.priority || "Medium"}
+              // Примусово до верхнього регістру для синхронізації з Enum
+              value={activeInc?.priority?.toUpperCase() || "MEDIUM"}
               onChange={(e) =>
                 setActiveInc({ ...activeInc, priority: e.target.value })
               }
             >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Critical">Critical</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="CRITICAL">Critical</option>
             </select>
           </div>
           <div className="space-y-2">
@@ -1217,6 +1263,8 @@ export default function App() {
   };
   // -------- Документи ----------------
   const uploadDocument = async (title, file, projectId) => {
+    if (!users[0]) return; // Перевірка наявності користувача
+
     const formData = new FormData();
 
     // Додаємо файл (ключ має бути "file", як у роутері)
@@ -1227,7 +1275,7 @@ export default function App() {
     const params = new URLSearchParams({
       title: title,
       project_id: projectId,
-      created_by: "UUID-КОРИСТУВАЧА", // Обов'язкове поле за схемою
+      created_by: users[0].user_id, // реальний ID з бази
       status: "DRAFT", // Початковий статус версії
     });
 
@@ -1236,19 +1284,11 @@ export default function App() {
         `${API_BASE_URL}/documents?${params.toString()}`,
         {
           method: "POST",
-          body: formData, // Не вказуйте Content-Type, браузер зробить це сам для FormData
+          body: formData, // Не вказую Content-Type, браузер зробить це сам для FormData
         },
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Upload failed");
-      }
-
-      const result = await response.json();
-      console.log("Document uploaded:", result.document_id);
-
-      loadAllData(); // Перезавантажуємо список документів
+      if (response.ok) await loadAllData();
     } catch (err) {
       console.error("Upload error:", err);
     }
@@ -1356,37 +1396,57 @@ export default function App() {
 
   // FR-13: Створення інциденту в базі
   const createIncident = async (data) => {
-    if (!selectedProject || !users[0]) return;
+    if (!selectedProject || !users[0]) {
+      alert("Будь ласка, спочатку виберіть проєкт на дашборді!");
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/incidents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: data.title,
-          description: data.description,
-          priority: data.priority,
-          project_id: selectedProject.project_id, // Прив'язка до проекту
+          description: data.description || "",
+          // Перетворюємо в UPPERCASE для відповідності Enum у базі
+          priority: (data.priority || "MEDIUM").toUpperCase(),
+          project_id: selectedProject.project_id,
           created_by: users[0].user_id,
         }),
       });
-      if (response.ok) await loadAllData();
+
+      if (response.ok) {
+        await loadAllData();
+      } else {
+        const err = await response.json();
+        console.error("Бекенд відхилив створення:", err.detail);
+      }
     } catch (err) {
-      console.error("Error creating incident:", err);
+      console.error("Network error:", err);
     }
   };
 
   // FR-15: Оновлення інциденту
   const updateIncident = async (id, data) => {
     try {
+      // Крок A: Оновлюємо основну інформацію (Title, Description)
       const response = await fetch(`${API_BASE_URL}/incidents/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: data.title,
           description: data.description,
-          priority: data.priority,
+          // УВАГА: Якщо бекенд не підтримує оновлення пріоритету в IncidentUpdate,
+          // це поле буде ігноруватися або викликати помилку
         }),
       });
+      // Крок B: Оновлюємо пріоритет через спеціальний PUT маршрут бекенду
+      const resPriority = await fetch(
+        `${API_BASE_URL}/incidents/${id}/priority?priority=${data.priority.toUpperCase()}`,
+        {
+          method: "PUT",
+        },
+      );
       if (response.ok) await loadAllData();
     } catch (err) {
       console.error("Error updating incident:", err);
@@ -1428,7 +1488,7 @@ export default function App() {
     resolveIncident,
 
     // Створення документа (Multipart/form-data згідно з documents.py)
-    addDoc: async (docData, file) => {
+    /*addDoc: async (docData, file) => {
       // Бекенд очікує проект_id та created_by (UUID)
       console.log("Uploading to backend...", docData);
       setDocs((prev) => [
@@ -1439,10 +1499,10 @@ export default function App() {
         },
         ...prev,
       ]);
-    },
+    },*/
 
     // Створення інциденту (згідно з incidents (1).py)
-    addIncident: async (title, desc, priority) => {
+    /*addIncident: async (title, desc, priority) => {
       // POST запит на /incidents
       setIncidents((prev) => [
         {
@@ -1454,7 +1514,7 @@ export default function App() {
         },
         ...prev,
       ]);
-    },
+    },*/
   };
 
   return (
@@ -1503,8 +1563,6 @@ export default function App() {
                 >
                   ← Back to Registry
                 </button>
-
-                {/* Кнопки керування (FR-03, FR-04) */}
                 <div className="flex gap-4">
                   <select
                     className="text-[10px] font-bold uppercase border-b border-black bg-transparent outline-none cursor-pointer"
@@ -1520,18 +1578,9 @@ export default function App() {
                     <option value="PENDING">Pending</option>
                     <option value="APPROVED">Approved</option>
                     <option value="COMPLETED">Completed</option>
-                    <option value="DENIED">Denied</option>
                   </select>
-
-                  <button
-                    onClick={() => deleteProject(selectedProject.project_id)}
-                    className="text-[10px] font-bold uppercase text-red-400 hover:text-red-600"
-                  >
-                    Delete Project
-                  </button>
                 </div>
               </div>
-
               <div className="text-5xl mb-4">
                 {selectedProject.icon || "🏗️"}
               </div>
@@ -1543,7 +1592,18 @@ export default function App() {
                 <span className="text-black">{selectedProject.status}</span>
               </p>
             </div>
-            <TasksPage />
+
+            {/* Відображаємо тільки те, що стосується цього проєкту */}
+            <div className="space-y-12 pb-20">
+              <TasksPage filterProjectId={selectedProject.project_id} />
+              {/* НОВИЙ БЛОК: Документи проєкту */}
+              <div className="border-t border-gray-100 pt-12">
+                <DocumentsPage filterProjectId={selectedProject.project_id} />
+              </div>
+              <div className="border-t border-gray-100 pt-12">
+                <IncidentsPage filterProjectId={selectedProject.project_id} />
+              </div>
+            </div>
           </div>
         )}
         {page === "tasks" && <TasksPage />}
