@@ -251,7 +251,7 @@ async def update_version_status(
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
 
-    if data.status == DocumentStatus.STABLE:
+    if data == DocumentStatus.STABLE:
         await db.execute(
             update(DocumentVersion)
             .where(
@@ -260,7 +260,7 @@ async def update_version_status(
             )
             .values(status=DocumentStatus.ARCHIVED)
         )
-    version.status = data.status
+    version.status = data
 
     await db.commit()
     return {"message": "Version status updated successfully"}
