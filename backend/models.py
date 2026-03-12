@@ -35,7 +35,7 @@ class TaskStatus(str, enum.Enum):
 class DocumentStatus(str, enum.Enum):
     DRAFT = "DRAFT"
     STABLE = "STABLE"
-    ARCHIVED = "ARCHIVE"
+    ARCHIVED = "ARCHIVED"
 
 class IncidentPriority(str, enum.Enum):
     LOW = "LOW"
