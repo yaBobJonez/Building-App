@@ -358,22 +358,21 @@ function DashboardPage({ onProjectClick, setPage }) {
             { label: "Total Projects", val: projects.length, change: null },
             {
               label: "Completed",
-              val: projects.filter(
-                (p) => p.status === "Done" || p.status === "Approved",
-              ).length,
-              change: "+1",
+              // Фільтруємо за статусом COMPLETED (великими літерами, як у базі)
+              val: projects.filter((p) => p.status === "COMPLETED").length,
+              change: null,
             },
             {
               label: "In Progress",
-              val: projects.filter(
-                (p) => p.status === "Active" || p.status === "In Progress",
-              ).length,
-              change: "0",
+              // Фільтруємо за статусом ACTIVE
+              val: projects.filter((p) => p.status === "ACTIVE").length,
+              change: null,
             },
             {
               label: "Pending",
-              val: projects.filter((p) => p.status === "Pending").length,
-              change: "0",
+              // Фільтруємо за статусом PENDING
+              val: projects.filter((p) => p.status === "PENDING").length,
+              change: null,
             },
           ].map((s) => (
             <div
@@ -653,6 +652,7 @@ function DocumentsPage({ filterProjectId }) {
     createNewVersion,
     updateVersionStatus,
     downloadVersion,
+    deleteVersion,
     selectedProject,
     users,
   } = useContext(AppContext);
@@ -667,10 +667,14 @@ function DocumentsPage({ filterProjectId }) {
     const matchesProject = filterProjectId
       ? doc.project_id === filterProjectId
       : true;
-    const matchesFilter =
-      activeFilter === "All" ||
-      doc.versions?.some((v) => v.status === activeFilter.toUpperCase());
-    return matchesProject && matchesFilter;
+
+    if (activeFilter === "All") return matchesProject;
+
+    // Перевіряємо статус ВЕРСІЙ документа (великими літерами)
+    const targetStatus = activeFilter.toUpperCase();
+    return (
+      matchesProject && doc.versions?.some((v) => v.status === targetStatus)
+    );
   });
 
   // Обробник завантаження нового документа (перша версія)
@@ -695,19 +699,6 @@ function DocumentsPage({ filterProjectId }) {
       e.target.value = ""; // Скидаємо інпут для повторного використання
     }
   };
-  /*const handleVersionUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file && targetDocId) {
-      try {
-        await createNewVersion(targetDocId, file);
-        // Очищуємо інпут, щоб можна було вибрати той самий файл двічі
-        e.target.value = "";
-        setTargetDocId(null);
-      } catch (err) {
-        console.error("Version upload failed", err);
-      }
-    }
-  };*/
 
   return (
     <div className="max-w-5xl mx-auto p-12 space-y-16">
@@ -852,13 +843,24 @@ function DocumentsPage({ filterProjectId }) {
                         </div>
 
                         {/* Завантаження версії (FR-10) */}
-                        <button
-                          onClick={() => downloadVersion(v.version_id)}
-                          className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all shadow-md"
-                          title="Download this version"
-                        >
-                          <Download size={16} />
-                        </button>
+                        {/* Блок кнопок управління (тепер вони разом праворуч) */}
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => downloadVersion(v.version_id)}
+                            className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all shadow-md"
+                            title="Download"
+                          >
+                            <Download size={16} />
+                          </button>
+                          {/* Видалення версії */}
+                          <button
+                            onClick={() => deleteVersion(v.version_id)}
+                            className="w-10 h-10 border border-red-100 text-red-500 flex items-center justify-center rounded-full hover:bg-red-50 hover:border-red-200 active:scale-95 transition-all shadow-sm"
+                            title="Delete version"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
                       </div>
                     ))
                 ) : (
@@ -1108,7 +1110,7 @@ export default function App() {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [p, t, d, i, u] = await Promise.all([
+      const [p, t, d_base, i, u] = await Promise.all([
         fetch(`${API_BASE_URL}/projects`).then((r) => r.json()),
         fetch(`${API_BASE_URL}/tasks`).then((r) => r.json()),
         fetch(`${API_BASE_URL}/documents`).then((r) => r.json()),
@@ -1116,21 +1118,32 @@ export default function App() {
         fetch(`${API_BASE_URL}/users`).then((r) => r.json()), // Додано користувачів
       ]);
 
-      // Валідація та встановлення даних (зберігаємо моки як fallback)
+      // 1. Отримуємо деталі з версіями ТІЛЬКИ якщо d_base — це масив
+      let finalDocs = MOCK_DOCS;
+      if (Array.isArray(d_base)) {
+        finalDocs = await Promise.all(
+          d_base.map((doc) =>
+            fetch(`${API_BASE_URL}/documents/${doc.document_id}`).then((r) =>
+              r.json(),
+            ),
+          ),
+        );
+      }
+
+      // 2. Встановлюємо стан ОДИН РАЗ актуальними даними
+      setDocs(finalDocs);
+
       const validatedProjects = Array.isArray(p) ? p : MOCK_PROJECTS;
       setProjects(validatedProjects);
       setTasks(Array.isArray(t) ? t : MOCK_TASKS);
-      setDocs(Array.isArray(d) ? d : MOCK_DOCS);
       setIncidents(Array.isArray(i) ? i : MOCK_INCIDENTS);
       setUsers(Array.isArray(u) ? u : []);
-      // ФІКС: Оновлюємо selectedProject новими даними з бази, щоб не втратити стан
+
       if (selectedProject) {
         const current = validatedProjects.find(
           (proj) => proj.project_id === selectedProject.project_id,
         );
-        if (current) {
-          setSelectedProject(current); // Оновлюємо об'єкт проєкту актуальними даними
-        }
+        if (current) setSelectedProject(current);
       }
     } catch (err) {
       console.error("Backend connection failed, using MOCK data", err);
@@ -1321,130 +1334,125 @@ export default function App() {
   const createNewVersion = async (documentId, file) => {
     if (!users[0]) return;
 
-    const formData = new FormData();
-
-    // 1. Додаємо файл (ключ "file" згідно з routers/documents.py)
-    formData.append("file", file);
-
-    // 2. Додаємо поля моделі DocumentVersionCreate ОКРЕМО
-    // НЕ використовуйте JSON.stringify і не створюйте ключ "data"
-    formData.append("uploaded_by", users[0].user_id);
-    formData.append("status", "DRAFT");
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/documents/${documentId}/versions`,
-        {
-          method: "POST",
-          // Content-Type НЕ ставимо, браузер сам вибере multipart/form-data
-          body: formData,
-        },
-      );
-
-      if (response.ok) {
-        console.log("Версія успішно створена");
-        await loadAllData();
-      } else {
-        const errorData = await response.json();
-        console.error("Backend error details:", errorData.detail);
-        alert("Validation Error: " + JSON.stringify(errorData.detail));
-      }
-    } catch (err) {
-      console.error("Network error during version upload:", err);
-    }
-  };
-
-  const uploadDocument = async (title, file, projectId) => {
-    if (!users[0]) return;
-
-    const formData = new FormData();
-
-    // 1. Додаємо файл (ключ "file" має збігатися з аргументом у роутері)
-    formData.append("file", file);
-
-    // 2. Додаємо поля моделі DocumentCreate ОКРЕМО
-    // Важливо: НЕ використовуйте JSON.stringify і не створюйте ключ "data"
-    formData.append("title", title);
-    formData.append("project_id", projectId);
-    formData.append("created_by", users[0].user_id);
-    formData.append("status", "DRAFT");
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/documents`, {
-        method: "POST",
-        // Content-Type НЕ вказуємо, браузер сам встановити multipart/form-data
-        body: formData,
-      });
-
-      if (response.ok) {
-        await loadAllData();
-      } else {
-        const errorData = await response.json();
-        console.error("Помилка валідації на бекенді:", errorData.detail);
-        alert("Validation Error: " + JSON.stringify(errorData.detail));
-      }
-    } catch (err) {
-      console.error("Network error during document upload:", err);
-    }
-  };
-  /*const createNewVersion = async (documentId, file) => {
-    if (!users[0]) return;
-
-    const formData = new FormData();
-    formData.append("file", file); // Файл іде в Request Body
-
-    // Параметри uploaded_by та status тепер ідуть в URL
+    // Query-параметри (те, що йде в посиланні)
     const params = new URLSearchParams({
       uploaded_by: users[0].user_id,
       status: "DRAFT",
     });
+
+    // Body-дані (тільки файл)
+    const formData = new FormData();
+    formData.append("file", file); // Ключ "file" має збігатися зі Swagger
 
     try {
       const response = await fetch(
         `${API_BASE_URL}/documents/${documentId}/versions?${params.toString()}`,
         {
           method: "POST",
-          body: formData, // Браузер сам встановить потрібний boundary для multipart/form-data
+          body: formData, // Файл іде в тілі (multipart/form-data)
+        },
+      );
+      if (response.ok) {
+        await loadAllData();
+      } else {
+        const errorData = await response.json();
+        console.error("Backend error details:", errorData.detail);
+      }
+    } catch (err) {
+      console.error("Network error:", err);
+    }
+  };
+
+  const uploadDocument = async (title, file, projectId) => {
+    if (!users[0]) return;
+
+    // передається в посиланні
+    const params = new URLSearchParams({
+      title: title,
+      project_id: projectId,
+      created_by: users[0].user_id,
+      status: "DRAFT",
+    });
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/documents?${params.toString()}`,
+        {
+          method: "POST",
+          body: formData,
         },
       );
 
       if (response.ok) {
-        console.log("Нову версію успішно завантажено");
         await loadAllData();
-      } else {
-        const error = await response.json();
-        console.error("Помилка завантаження версії:", error.detail);
       }
     } catch (err) {
-      console.error("Network error during version upload:", err);
+      console.error("Network error during upload:", err);
     }
-  };*/
+  };
 
   // FR-11: Оновлення статусу версії
   const updateVersionStatus = async (versionId, newStatus) => {
     try {
-      // Якщо встановлюємо STABLE, бекенд сам має скинути інші версії,
-      // але ми робимо запит згідно з маршрутом
+      // ВАЖЛИВО: бекенд очікує ключ 'data' у query-параметрах
       const response = await fetch(
-        `${API_BASE_URL}/documents/versions/${versionId}/status`,
+        `${API_BASE_URL}/documents/versions/${versionId}/status?data=${newStatus}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: newStatus }),
+          // Тіло запиту залишається порожнім
         },
       );
-      if (response.ok) await loadAllData();
+
+      if (response.ok) {
+        await loadAllData();
+      } else {
+        const errorData = await response.json();
+        // Тут можна побачити точну причину, якщо 422 залишиться
+        console.error("Backend validation error:", errorData.detail);
+      }
     } catch (err) {
       console.error("Error updating version status:", err);
     }
   };
-
+  // Завантаження версії
   const downloadVersion = async (versionId) => {
     // Відкриваємо пряме посилання на завантаження з бекенду/MinIO
     window.open(
       `${API_BASE_URL}/documents/versions/${versionId}/download`,
       "_blank",
     );
+  };
+
+  //Видалення версії
+  const deleteVersion = async (versionId) => {
+    if (
+      !window.confirm(
+        "Ви впевнені, що хочете видалити цю версію? Файл також буде видалено з сервера.",
+      )
+    )
+      return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/documents/versions/${versionId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (response.ok) {
+        console.log("Версію видалено");
+        await loadAllData();
+      } else {
+        const errorData = await response.json();
+        console.error("Помилка видалення:", errorData.detail);
+      }
+    } catch (err) {
+      console.error("Network error during version deletion:", err);
+    }
   };
 
   // -------------- Задачі (чекбокси)
@@ -1569,6 +1577,8 @@ export default function App() {
     uploadDocument,
     createNewVersion,
     updateVersionStatus,
+    downloadVersion,
+    deleteVersion,
     toggleTask,
     createTask,
     updateTaskDetails,
