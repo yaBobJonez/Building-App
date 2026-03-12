@@ -337,7 +337,7 @@ async def test_TC11_stable_version_uniqueness():
         v2 = next(v for v in versions if v["version_number"] == 2)
 
         assert v2["status"] == "STABLE"
-        assert v1["status"] == "ARCHIVE"
+        assert v1["status"] == "ARCHIVED"
 
 
 
